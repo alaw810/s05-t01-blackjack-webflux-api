@@ -1,0 +1,27 @@
+package cat.itacademy.s05.t01.blackjack.util;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class DeckFactory {
+
+    private static final List<String> SUITS = List.of("H", "D", "C", "S");
+    private static final List<String> RANKS = List.of("A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K");
+    private static final List<String> BASE_DECK;
+
+    static {
+        List<String> tempDeck = new ArrayList<>();
+        for (String suit : SUITS) {
+            for (String rank : RANKS) {
+                tempDeck.add(rank + suit);
+            }
+        }
+        BASE_DECK = List.copyOf(tempDeck);
+    }
+    public static List<String> createShuffledDeck() {
+        List<String> deck = new ArrayList<>(BASE_DECK);
+        Collections.shuffle(deck);
+        return deck;
+    }
+}
