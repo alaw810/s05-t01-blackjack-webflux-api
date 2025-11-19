@@ -1,10 +1,11 @@
 package cat.itacademy.s05.t01.blackjack.dto;
 
-import java.util.List;
+import lombok.Builder;
+import lombok.Data;
 
-public record NewGameResponse(
-        String playerName,
-        List<String> playerHand,
-        List<String> dealerHand,
-        List<String> deck
-) {}
+@Data
+@Builder
+public class NewGameResponse {
+    private String gameId;
+    private String playerName;
+}
