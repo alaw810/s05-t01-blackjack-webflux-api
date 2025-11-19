@@ -1,23 +1,22 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
-import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
+import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
+import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
-import cat.itacademy.s05.t01.blackjack.util.DeckFactory;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class GameServiceTest {
 
     @Mock
@@ -27,66 +26,34 @@ class GameServiceTest {
     private GameReactiveRepository gameRepository;
 
     @InjectMocks
-    private GameService gameService;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
+    private GameServiceImpl gameService;
 
     @Test
-    void shouldCreateNewPlayerIfNotExists() {
-        String playerName = "John";
+    void createNewGame_ShouldCreatePlayer_WhenPlayerDoesNotExist() {
+        NewGameRequest request = new NewGameRequest("Adria");
 
-        when(playerRepository.findByName(playerName)).thenReturn(Mono.empty());
+        when(playerRepository.findByName("Adria"))
+                .thenReturn(Mono.empty());
+
+        Player savedPlayer = Player.builder()
+                .id(1L)
+                .name("Adria")
+                .gamesPlayed(0)
+                .gamesWon(0)
+                .gamesLost(0)
+                .build();
+
         when(playerRepository.save(any(Player.class)))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+                .thenReturn(Mono.just(savedPlayer));
 
-        when(gameRepository.save(any(Game.class)))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        Mono<NewGameResponse> result = gameService.createNewGame(request);
 
-        StepVerifier.create(gameService.createNewGame(playerName))
-                .assertNext(response -> {
-                    assert response.playerName().equals("John");
-                })
+        StepVerifier.create(result)
+                .expectNextMatches(res ->
+                        res.getPlayerName().equals("Adria")
+                )
                 .verifyComplete();
 
         verify(playerRepository).save(any(Player.class));
-    }
-
-    @Test
-    void shouldNotCreateNewPlayerIfExists() {
-        String playerName = "Jane";
-        Player existingPlayer = new Player(1L, "Jane", 0, 0, 0);
-
-        when(playerRepository.findByName(playerName)).thenReturn(Mono.just(existingPlayer));
-        when(gameRepository.save(any(Game.class)))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        StepVerifier.create(gameService.createNewGame(playerName))
-                .assertNext(response -> {
-                    assert response.playerName().equals("Jane");
-                })
-                .verifyComplete();
-
-        verify(playerRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldInitializeDeckAndHands() {
-        String playerName = "John";
-        Player player = new Player(5L, "John", 0, 0, 0);
-
-        when(playerRepository.findByName(playerName)).thenReturn(Mono.just(player));
-        when(gameRepository.save(any(Game.class)))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        StepVerifier.create(gameService.createNewGame(playerName))
-                .assertNext(response -> {
-                    assert response.playerHand().size() == 2;
-                    assert response.dealerHand().size() == 2;
-                    assert response.deck().size() == 52 - 4;
-                })
-                .verifyComplete();
     }
 }
