@@ -2,6 +2,7 @@ package cat.itacademy.s05.t01.blackjack.service;
 
 import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
+import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import reactor.core.publisher.Mono;
@@ -19,6 +20,23 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public Mono<NewGameResponse> createNewGame(NewGameRequest request) {
-        return Mono.empty();
+        String playerName = request.playerName();
+
+        return playerRepository.findByName(playerName)
+                .switchIfEmpty(
+                        playerRepository.save(
+                                Player.builder()
+                                        .name(playerName)
+                                        .gamesPlayed(0)
+                                        .gamesWon(0)
+                                        .gamesLost(0)
+                                        .build()
+                        )
+                )
+                .map(player -> NewGameResponse.builder()
+                        .playerName(player.getName())
+                        .build()
+                );
     }
+
 }
