@@ -96,7 +96,7 @@ class GameControllerTest {
     @Test
     void getGame_ShouldReturn200AndGameDetails() {
         GameDetailsResponse response = GameDetailsResponse.builder()
-                .gameId("game-123")
+                .gameId("123")
                 .playerId(1L)
                 .playerHand(List.of("AH", "7D"))
                 .dealerHand(List.of("9C", "6S"))
@@ -106,14 +106,14 @@ class GameControllerTest {
                 .remainingDeckSize(40)
                 .build();
 
-        when(gameService.getGame("game-123"))
+        when(gameService.getGame("123"))
                 .thenReturn(Mono.just(response));
 
         webTestClient.get().uri("/123")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.gameId").isEqualTo("game-123")
+                .jsonPath("$.gameId").isEqualTo("123")
                 .jsonPath("$.playerId").isEqualTo(1)
                 .jsonPath("$.status").isEqualTo("IN_PROGRESS");
     }

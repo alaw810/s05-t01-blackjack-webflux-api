@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
+import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
@@ -29,4 +30,11 @@ public class GameController {
         }
         return gameService.createNewGame(request);
     }
+
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public Mono<GameDetailsResponse> getGame(@PathVariable String id) {
+        return gameService.getGame(id);
+    }
+
 }
