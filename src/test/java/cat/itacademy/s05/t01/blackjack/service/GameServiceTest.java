@@ -50,7 +50,6 @@ class GameServiceTest {
 
     @Test
     void createNewGame_ShouldCreateGameInMongo() {
-        // given
         NewGameRequest request = new NewGameRequest("Alice");
 
         Player existingPlayer = Player.builder()
@@ -71,10 +70,8 @@ class GameServiceTest {
                     return Mono.just(game);
                 });
 
-        // when
         Mono<NewGameResponse> result = gameService.createNewGame(request);
 
-        // then
         StepVerifier.create(result)
                 .assertNext(response -> {
                     assertThat(response.getGameId()).isEqualTo("game-123");
@@ -87,7 +84,6 @@ class GameServiceTest {
 
     @Test
     void createNewGame_ShouldCreatePlayerIfNotExists() {
-        // given
         NewGameRequest request = new NewGameRequest("Bob");
 
         when(playerRepository.findByName("Bob"))
@@ -111,10 +107,8 @@ class GameServiceTest {
                     return Mono.just(game);
                 });
 
-        // when
         Mono<NewGameResponse> result = gameService.createNewGame(request);
 
-        // then
         StepVerifier.create(result)
                 .assertNext(response -> {
                     assertThat(response.getGameId()).isEqualTo("game-999");
@@ -127,7 +121,6 @@ class GameServiceTest {
 
     @Test
     void createNewGame_ShouldNotCreatePlayerIfAlreadyExists() {
-        // given
         NewGameRequest request = new NewGameRequest("Charlie");
 
         Player existingPlayer = Player.builder()
@@ -148,10 +141,8 @@ class GameServiceTest {
                     return Mono.just(game);
                 });
 
-        // when
         Mono<NewGameResponse> result = gameService.createNewGame(request);
 
-        // then
         StepVerifier.create(result)
                 .assertNext(response -> {
                     assertThat(response.getPlayerName()).isEqualTo("Charlie");
@@ -164,7 +155,6 @@ class GameServiceTest {
 
     @Test
     void createNewGame_ShouldInitializeDeckAndHandsCorrectly() {
-        // given
         NewGameRequest request = new NewGameRequest("Dana");
 
         Player player = Player.builder()
@@ -185,10 +175,8 @@ class GameServiceTest {
                     return Mono.just(game);
                 });
 
-        // when
         Mono<NewGameResponse> result = gameService.createNewGame(request);
 
-        // then
         StepVerifier.create(result)
                 .assertNext(response -> {
                     List<String> playerHand = response.getPlayerHand();
@@ -197,15 +185,12 @@ class GameServiceTest {
                     assertThat(playerHand).hasSize(2);
                     assertThat(dealerHand).hasSize(2);
 
-                    // no solapamiento entre manos
                     List<String> combined = new ArrayList<>(playerHand);
                     combined.retainAll(dealerHand);
                     assertThat(combined).isEmpty();
 
-                    // el mazo debe tener 48 cartas restantes
                     assertThat(response.getRemainingDeckSize()).isEqualTo(48);
 
-                    // valores de mano razonables (entre 4 y 21)
                     assertThat(response.getPlayerHandValue()).isBetween(4, 21);
                     assertThat(response.getDealerHandValue()).isBetween(4, 21);
 
