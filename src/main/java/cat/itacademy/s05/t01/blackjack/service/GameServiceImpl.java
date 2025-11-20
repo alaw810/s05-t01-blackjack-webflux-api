@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
+import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
@@ -8,7 +9,9 @@ import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import cat.itacademy.s05.t01.blackjack.util.BlackjackRules;
 import cat.itacademy.s05.t01.blackjack.util.DeckFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -60,6 +63,34 @@ public class GameServiceImpl implements GameService {
                             .map(savedGame -> toNewGameResponse(savedGame, player));
                 });
     }
+
+    @Override
+    public Mono<GameDetailsResponse> getGame(String gameId) {
+        return gameRepository.findById(gameId)
+                .switchIfEmpty(Mono.error(
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Game not found"
+                        )
+                ))
+                .map(game -> {
+                    int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
+                    int dealerValue = BlackjackRules.calculateHandValue(game.getDealerHand());
+                    int deckSize = game.getDeck() != null ? game.getDeck().size() : 0;
+
+                    return GameDetailsResponse.builder()
+                            .gameId(game.getId())
+                            .playerId(game.getPlayerId())
+                            .playerHand(game.getPlayerHand())
+                            .dealerHand(game.getDealerHand())
+                            .status(game.getStatus())
+                            .playerHandValue(playerValue)
+                            .dealerHandValue(dealerValue)
+                            .remainingDeckSize(deckSize)
+                            .build();
+                });
+    }
+
 
     private Mono<Player> findOrCreatePlayer(String playerName) {
         return playerRepository.findByName(playerName)

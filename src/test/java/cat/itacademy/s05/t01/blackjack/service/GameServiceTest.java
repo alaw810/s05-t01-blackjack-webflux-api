@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
+import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
@@ -198,4 +199,59 @@ class GameServiceTest {
                 })
                 .verifyComplete();
     }
+
+    @Test
+    void getGame_ShouldReturnGameDetails_WhenGameExists() {
+        String gameId = "game-100";
+
+        Game game = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(List.of("AH", "7D"))
+                .dealerHand(List.of("9C", "6S"))
+                .deck(List.of("2H", "4D", "KC"))
+                .status("IN_PROGRESS")
+                .build();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(game));
+
+        Mono<GameDetailsResponse> result = gameService.getGame(gameId);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getGameId()).isEqualTo(gameId);
+                    assertThat(response.getPlayerId()).isEqualTo(1L);
+                    assertThat(response.getPlayerHand()).containsExactly("AH", "7D");
+                    assertThat(response.getDealerHand()).containsExactly("9C", "6S");
+                    assertThat(response.getStatus()).isEqualTo("IN_PROGRESS");
+                    assertThat(response.getPlayerHandValue()).isGreaterThan(0);
+                    assertThat(response.getDealerHandValue()).isGreaterThan(0);
+                    assertThat(response.getRemainingDeckSize()).isEqualTo(3);
+                })
+                .verifyComplete();
+
+        verify(gameRepository, times(1)).findById(gameId);
+    }
+
+    @Test
+    void getGame_ShouldReturnError_WhenGameDoesNotExist() {
+        String gameId = "not-found";
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.empty());
+
+        Mono<GameDetailsResponse> result = gameService.getGame(gameId);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(error ->
+                        error instanceof org.springframework.web.server.ResponseStatusException &&
+                                ((org.springframework.web.server.ResponseStatusException) error)
+                                        .getStatusCode().value() == 404
+                )
+                .verify();
+
+        verify(gameRepository, times(1)).findById(gameId);
+    }
+
 }
