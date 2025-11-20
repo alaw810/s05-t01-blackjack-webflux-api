@@ -307,6 +307,18 @@ class GameServiceTest {
 
         Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
 
+        when(playerRepository.findById(1L))
+                .thenReturn(Mono.just(Player.builder()
+                        .id(1L)
+                        .name("Test")
+                        .gamesPlayed(0)
+                        .gamesWon(0)
+                        .gamesLost(0)
+                        .build()));
+
+        when(playerRepository.save(any(Player.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
         StepVerifier.create(result)
                 .assertNext(response -> {
                     assertThat(response.getPlayerValue()).isGreaterThan(21);
@@ -337,6 +349,18 @@ class GameServiceTest {
         PlayRequestDTO request = new PlayRequestDTO("STAND");
 
         Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        when(playerRepository.findById(1L))
+                .thenReturn(Mono.just(Player.builder()
+                        .id(1L)
+                        .name("Test")
+                        .gamesPlayed(0)
+                        .gamesWon(0)
+                        .gamesLost(0)
+                        .build()));
+
+        when(playerRepository.save(any(Player.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         StepVerifier.create(result)
                 .assertNext(response -> {
@@ -369,6 +393,18 @@ class GameServiceTest {
         PlayRequestDTO request = new PlayRequestDTO("DOUBLE");
 
         Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        when(playerRepository.findById(1L))
+                .thenReturn(Mono.just(Player.builder()
+                        .id(1L)
+                        .name("Test")
+                        .gamesPlayed(0)
+                        .gamesWon(0)
+                        .gamesLost(0)
+                        .build()));
+
+        when(playerRepository.save(any(Player.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
         StepVerifier.create(result)
                 .assertNext(response -> {
