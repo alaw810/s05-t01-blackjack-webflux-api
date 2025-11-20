@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
+import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
 import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
@@ -9,8 +10,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -89,4 +92,55 @@ class GameControllerTest {
                 .exchange()
                 .expectStatus().isBadRequest();
     }
+
+    @Test
+    void getGame_ShouldReturn200AndGameDetails() {
+        GameDetailsResponse response = GameDetailsResponse.builder()
+                .gameId("game-123")
+                .playerId(1L)
+                .playerHand(List.of("AH", "7D"))
+                .dealerHand(List.of("9C", "6S"))
+                .status("IN_PROGRESS")
+                .playerHandValue(18)
+                .dealerHandValue(15)
+                .remainingDeckSize(40)
+                .build();
+
+        when(gameService.getGame("game-123"))
+                .thenReturn(Mono.just(response));
+
+        webTestClient.get().uri("/123")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.gameId").isEqualTo("game-123")
+                .jsonPath("$.playerId").isEqualTo(1)
+                .jsonPath("$.status").isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    void getGame_ShouldReturn404_WhenGameNotFound() {
+        when(gameService.getGame("missing"))
+                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+
+        webTestClient.get().uri("/missing")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void getGame_ShouldCallService() {
+        when(gameService.getGame("abc"))
+                .thenReturn(Mono.just(GameDetailsResponse.builder()
+                        .gameId("abc")
+                        .playerId(5L)
+                        .build()));
+
+        webTestClient.get().uri("/abc")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(gameService, times(1)).getGame("abc");
+    }
+
 }
