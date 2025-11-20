@@ -1,8 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
-import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
+import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
@@ -252,6 +250,174 @@ class GameServiceTest {
                 .verify();
 
         verify(gameRepository, times(1)).findById(gameId);
+    }
+
+    @Test
+    void playMove_HIT_ShouldAddCardToPlayer() {
+        String gameId = "g1";
+
+        Game existingGame = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(List.of("5H", "6D")))
+                .dealerHand(new ArrayList<>(List.of("10C", "7S")))
+                .deck(new ArrayList<>(List.of("9H", "4C", "8D")))
+                .status("IN_PROGRESS")
+                .build();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(existingGame));
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        PlayRequestDTO request = new PlayRequestDTO("HIT");
+
+        Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getPlayerHand()).hasSize(3);
+                    assertThat(response.getPlayerHand()).containsExactly("5H", "6D", "9H");
+                    assertThat(response.getRemainingDeckSize()).isEqualTo(2);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_HIT_ShouldCauseBust() {
+        String gameId = "g2";
+
+        Game game = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(List.of("10H", "9D")))
+                .dealerHand(new ArrayList<>(List.of("5C", "7D")))
+                .deck(new ArrayList<>(List.of("8C", "6H")))
+                .status("IN_PROGRESS")
+                .build();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(game));
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        PlayRequestDTO request = new PlayRequestDTO("HIT");
+
+        Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getPlayerValue()).isGreaterThan(21);
+                    assertThat(response.getStatus()).isEqualTo("PLAYER_BUST");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_STAND_ShouldTriggerDealerTurn() {
+        String gameId = "g3";
+
+        Game game = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(List.of("10H", "8D")))
+                .dealerHand(new ArrayList<>(List.of("5C", "7D")))
+                .deck(new ArrayList<>(List.of("6H", "4C", "9S")))
+                .status("IN_PROGRESS")
+                .build();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(game));
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        PlayRequestDTO request = new PlayRequestDTO("STAND");
+
+        Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    int dealerValue = response.getDealerValue();
+                    assertThat(dealerValue).isGreaterThanOrEqualTo(17);
+                    assertThat(response.getStatus()).isIn("DEALER_BUST", "PLAYER_WIN", "PLAYER_LOSE", "TIE");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_DOUBLE_ShouldAddCardAndFinishTurn() {
+        String gameId = "g4";
+
+        Game game = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(List.of("9H", "2D")))
+                .dealerHand(new ArrayList<>(List.of("7C", "8S")))
+                .deck(new ArrayList<>(List.of("10D", "3C", "6S")))
+                .status("IN_PROGRESS")
+                .build();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(game));
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        PlayRequestDTO request = new PlayRequestDTO("DOUBLE");
+
+        Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getPlayerHand()).hasSize(3);
+                    assertThat(response.getStatus()).isNotEqualTo("IN_PROGRESS");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_ShouldUpdatePlayerStatsWhenGameEnds() {
+        String gameId = "g5";
+
+        Game game = Game.builder()
+                .id(gameId)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(List.of("10H", "9D")))
+                .dealerHand(new ArrayList<>(List.of("5C", "7D")))
+                .deck(new ArrayList<>(List.of("8C")))
+                .status("IN_PROGRESS")
+                .build();
+
+        Player player = Player.builder()
+                .id(1L)
+                .name("Alice")
+                .gamesPlayed(0)
+                .gamesWon(0)
+                .gamesLost(0)
+                .build();
+
+        when(gameRepository.findById(gameId)).thenReturn(Mono.just(game));
+        when(playerRepository.findById(1L)).thenReturn(Mono.just(player));
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        when(playerRepository.save(any(Player.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        PlayRequestDTO request = new PlayRequestDTO("HIT");
+
+        Mono<PlayResultDTO> result = gameService.playMove(gameId, request);
+
+        StepVerifier.create(result)
+                .assertNext(response -> {
+                    assertThat(response.getStatus()).isEqualTo("PLAYER_BUST");
+                })
+                .verifyComplete();
+
+        verify(playerRepository, times(1)).save(any(Player.class));
     }
 
 }
