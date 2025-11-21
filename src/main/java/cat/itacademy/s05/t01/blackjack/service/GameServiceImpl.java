@@ -112,7 +112,9 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public Mono<Void> deleteGame(String gameId) {
-        return Mono.empty();
+        return gameRepository.findById(gameId)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)))
+                .flatMap(game -> gameRepository.deleteById(gameId));
     }
 
     private Mono<Player> findOrCreatePlayer(String playerName) {

@@ -54,5 +54,4 @@ public class GameController {
     public Mono<Void> deleteGame(@PathVariable String id) {
         return gameService.deleteGame(id);
     }
-
 }
