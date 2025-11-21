@@ -8,4 +8,5 @@ public interface GameService {
     Mono<NewGameResponse> createNewGame(NewGameRequest request);
     Mono<GameDetailsResponse> getGame(String gameId);
     Mono<PlayResultDTO> playMove(String gameId, PlayRequestDTO request);
+    Mono<Void> deleteGame(String gameId);
 }
