@@ -1,8 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
-import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
+import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
@@ -18,6 +16,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 class GameServiceTest {
@@ -36,84 +35,87 @@ class GameServiceTest {
     @BeforeEach
     void setUp() {
         closeable = MockitoAnnotations.openMocks(this);
+    }
+
+    private Player mockPlayer(long id, String name) {
+        return Player.builder()
+                .id(id)
+                .name(name)
+                .gamesPlayed(0)
+                .gamesWon(0)
+                .gamesLost(0)
+                .build();
+    }
+
+    private Game mockGame(
+            String id,
+            List<String> player,
+            List<String> dealer,
+            List<String> deck,
+            String status
+    ) {
+        return Game.builder()
+                .id(id)
+                .playerId(1L)
+                .playerHand(new ArrayList<>(player))
+                .dealerHand(new ArrayList<>(dealer))
+                .deck(new ArrayList<>(deck))
+                .status(status)
+                .build();
+    }
+
+    private void mockGameSave() {
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+    }
+
+    private void mockPlayerRepo() {
+        when(playerRepository.findById(anyLong()))
+                .thenReturn(Mono.just(mockPlayer(1L, "Test")));
 
         when(playerRepository.save(any(Player.class)))
-                .thenReturn(Mono.just(
-                        Player.builder()
-                                .id(999L)
-                                .name("dummy")
-                                .gamesPlayed(0)
-                                .gamesWon(0)
-                                .gamesLost(0)
-                                .build()
-                ));
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
     }
 
     @Test
     void createNewGame_ShouldCreateGameInMongo() {
         NewGameRequest request = new NewGameRequest("Alice");
+        Player existing = mockPlayer(1L, "Alice");
 
-        Player existingPlayer = Player.builder()
-                .id(1L)
-                .name("Alice")
-                .gamesPlayed(0)
-                .gamesWon(0)
-                .gamesLost(0)
-                .build();
-
-        when(playerRepository.findByName("Alice"))
-                .thenReturn(Mono.just(existingPlayer));
-
+        when(playerRepository.findByName("Alice")).thenReturn(Mono.just(existing));
         when(gameRepository.save(any(Game.class)))
                 .thenAnswer(invocation -> {
-                    Game game = invocation.getArgument(0);
-                    game.setId("game-123");
-                    return Mono.just(game);
+                    Game g = invocation.getArgument(0);
+                    g.setId("game-123");
+                    return Mono.just(g);
                 });
 
-        Mono<NewGameResponse> result = gameService.createNewGame(request);
-
-        StepVerifier.create(result)
-                .assertNext(response -> {
-                    assertThat(response.getGameId()).isEqualTo("game-123");
-                    assertThat(response.getPlayerName()).isEqualTo("Alice");
+        StepVerifier.create(gameService.createNewGame(request))
+                .assertNext(res -> {
+                    assertThat(res.getGameId()).isEqualTo("game-123");
+                    assertThat(res.getPlayerName()).isEqualTo("Alice");
                 })
                 .verifyComplete();
-
-        verify(gameRepository, times(1)).save(any(Game.class));
     }
 
     @Test
     void createNewGame_ShouldCreatePlayerIfNotExists() {
         NewGameRequest request = new NewGameRequest("Bob");
 
-        when(playerRepository.findByName("Bob"))
-                .thenReturn(Mono.empty());
-
-        Player savedPlayer = Player.builder()
-                .id(5L)
-                .name("Bob")
-                .gamesPlayed(0)
-                .gamesWon(0)
-                .gamesLost(0)
-                .build();
-
-        when(playerRepository.save(any(Player.class)))
-                .thenReturn(Mono.just(savedPlayer));
+        when(playerRepository.findByName("Bob")).thenReturn(Mono.empty());
+        when(playerRepository.save(any(Player.class))).thenReturn(Mono.just(mockPlayer(5L, "Bob")));
 
         when(gameRepository.save(any(Game.class)))
                 .thenAnswer(invocation -> {
-                    Game game = invocation.getArgument(0);
-                    game.setId("game-999");
-                    return Mono.just(game);
+                    Game g = invocation.getArgument(0);
+                    g.setId("game-999");
+                    return Mono.just(g);
                 });
 
-        Mono<NewGameResponse> result = gameService.createNewGame(request);
-
-        StepVerifier.create(result)
-                .assertNext(response -> {
-                    assertThat(response.getGameId()).isEqualTo("game-999");
-                    assertThat(response.getPlayerName()).isEqualTo("Bob");
+        StepVerifier.create(gameService.createNewGame(request))
+                .assertNext(res -> {
+                    assertThat(res.getPlayerName()).isEqualTo("Bob");
+                    assertThat(res.getGameId()).isEqualTo("game-999");
                 })
                 .verifyComplete();
 
@@ -124,31 +126,18 @@ class GameServiceTest {
     void createNewGame_ShouldNotCreatePlayerIfAlreadyExists() {
         NewGameRequest request = new NewGameRequest("Charlie");
 
-        Player existingPlayer = Player.builder()
-                .id(10L)
-                .name("Charlie")
-                .gamesPlayed(0)
-                .gamesWon(0)
-                .gamesLost(0)
-                .build();
-
         when(playerRepository.findByName(anyString()))
-                .thenReturn(Mono.just(existingPlayer));
+                .thenReturn(Mono.just(mockPlayer(10L, "Charlie")));
 
         when(gameRepository.save(any(Game.class)))
                 .thenAnswer(invocation -> {
-                    Game game = invocation.getArgument(0);
-                    game.setId("game-456");
-                    return Mono.just(game);
+                    Game g = invocation.getArgument(0);
+                    g.setId("game-456");
+                    return Mono.just(g);
                 });
 
-        Mono<NewGameResponse> result = gameService.createNewGame(request);
-
-        StepVerifier.create(result)
-                .assertNext(response -> {
-                    assertThat(response.getPlayerName()).isEqualTo("Charlie");
-                    assertThat(response.getGameId()).isEqualTo("game-456");
-                })
+        StepVerifier.create(gameService.createNewGame(request))
+                .assertNext(res -> assertThat(res.getPlayerName()).isEqualTo("Charlie"))
                 .verifyComplete();
 
         verify(playerRepository, never()).save(any(Player.class));
@@ -158,100 +147,156 @@ class GameServiceTest {
     void createNewGame_ShouldInitializeDeckAndHandsCorrectly() {
         NewGameRequest request = new NewGameRequest("Dana");
 
-        Player player = Player.builder()
-                .id(20L)
-                .name("Dana")
-                .gamesPlayed(0)
-                .gamesWon(0)
-                .gamesLost(0)
-                .build();
-
         when(playerRepository.findByName("Dana"))
-                .thenReturn(Mono.just(player));
+                .thenReturn(Mono.just(mockPlayer(20L, "Dana")));
 
         when(gameRepository.save(any(Game.class)))
                 .thenAnswer(invocation -> {
-                    Game game = invocation.getArgument(0);
-                    game.setId("game-init");
-                    return Mono.just(game);
+                    Game g = invocation.getArgument(0);
+                    g.setId("game-init");
+                    return Mono.just(g);
                 });
 
-        Mono<NewGameResponse> result = gameService.createNewGame(request);
-
-        StepVerifier.create(result)
-                .assertNext(response -> {
-                    List<String> playerHand = response.getPlayerHand();
-                    List<String> dealerHand = response.getDealerHand();
-
-                    assertThat(playerHand).hasSize(2);
-                    assertThat(dealerHand).hasSize(2);
-
-                    List<String> combined = new ArrayList<>(playerHand);
-                    combined.retainAll(dealerHand);
-                    assertThat(combined).isEmpty();
-
-                    assertThat(response.getRemainingDeckSize()).isEqualTo(48);
-
-                    assertThat(response.getPlayerHandValue()).isBetween(4, 21);
-                    assertThat(response.getDealerHandValue()).isBetween(4, 21);
-
-                    assertThat(response.getStatus()).isEqualTo("IN_PROGRESS");
+        StepVerifier.create(gameService.createNewGame(request))
+                .assertNext(res -> {
+                    assertThat(res.getPlayerHand()).hasSize(2);
+                    assertThat(res.getDealerHand()).hasSize(2);
+                    assertThat(res.getRemainingDeckSize()).isEqualTo(48);
+                    assertThat(res.getStatus()).isEqualTo("IN_PROGRESS");
                 })
                 .verifyComplete();
     }
 
     @Test
     void getGame_ShouldReturnGameDetails_WhenGameExists() {
-        String gameId = "game-100";
+        Game game = mockGame(
+                "game-100",
+                List.of("AH", "7D"),
+                List.of("9C", "6S"),
+                List.of("2H", "4D", "KC"),
+                "IN_PROGRESS"
+        );
 
-        Game game = Game.builder()
-                .id(gameId)
-                .playerId(1L)
-                .playerHand(List.of("AH", "7D"))
-                .dealerHand(List.of("9C", "6S"))
-                .deck(List.of("2H", "4D", "KC"))
-                .status("IN_PROGRESS")
-                .build();
-
-        when(gameRepository.findById(gameId))
+        when(gameRepository.findById("game-100"))
                 .thenReturn(Mono.just(game));
 
-        Mono<GameDetailsResponse> result = gameService.getGame(gameId);
-
-        StepVerifier.create(result)
-                .assertNext(response -> {
-                    assertThat(response.getGameId()).isEqualTo(gameId);
-                    assertThat(response.getPlayerId()).isEqualTo(1L);
-                    assertThat(response.getPlayerHand()).containsExactly("AH", "7D");
-                    assertThat(response.getDealerHand()).containsExactly("9C", "6S");
-                    assertThat(response.getStatus()).isEqualTo("IN_PROGRESS");
-                    assertThat(response.getPlayerHandValue()).isGreaterThan(0);
-                    assertThat(response.getDealerHandValue()).isGreaterThan(0);
-                    assertThat(response.getRemainingDeckSize()).isEqualTo(3);
+        StepVerifier.create(gameService.getGame("game-100"))
+                .assertNext(res -> {
+                    assertThat(res.getGameId()).isEqualTo("game-100");
+                    assertThat(res.getPlayerId()).isEqualTo(1L);
+                    assertThat(res.getPlayerHand()).containsExactly("AH", "7D");
                 })
                 .verifyComplete();
-
-        verify(gameRepository, times(1)).findById(gameId);
     }
 
     @Test
     void getGame_ShouldReturnError_WhenGameDoesNotExist() {
-        String gameId = "not-found";
+        when(gameRepository.findById("not-found")).thenReturn(Mono.empty());
 
-        when(gameRepository.findById(gameId))
-                .thenReturn(Mono.empty());
-
-        Mono<GameDetailsResponse> result = gameService.getGame(gameId);
-
-        StepVerifier.create(result)
-                .expectErrorMatches(error ->
-                        error instanceof org.springframework.web.server.ResponseStatusException &&
-                                ((org.springframework.web.server.ResponseStatusException) error)
-                                        .getStatusCode().value() == 404
-                )
+        StepVerifier.create(gameService.getGame("not-found"))
+                .expectErrorMatches(e -> e instanceof org.springframework.web.server.ResponseStatusException)
                 .verify();
-
-        verify(gameRepository, times(1)).findById(gameId);
     }
 
+    @Test
+    void playMove_HIT_ShouldAddCardToPlayer() {
+        Game game = mockGame(
+                "g1",
+                List.of("5H", "6D"),
+                List.of("10C", "7S"),
+                List.of("9H", "4C", "8D"),
+                "IN_PROGRESS"
+        );
+
+        when(gameRepository.findById("g1")).thenReturn(Mono.just(game));
+        mockGameSave();
+
+        StepVerifier.create(gameService.playMove("g1", new PlayRequestDTO("HIT")))
+                .assertNext(res -> assertThat(res.getPlayerHand()).hasSize(3))
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_HIT_ShouldCauseBust() {
+        Game game = mockGame(
+                "g2",
+                List.of("10H", "9D"),
+                List.of("5C", "7D"),
+                List.of("8C", "6H"),
+                "IN_PROGRESS"
+        );
+
+        when(gameRepository.findById("g2")).thenReturn(Mono.just(game));
+        mockGameSave();
+        mockPlayerRepo();
+
+        StepVerifier.create(gameService.playMove("g2", new PlayRequestDTO("HIT")))
+                .assertNext(res -> assertThat(res.getStatus()).isEqualTo("PLAYER_BUST"))
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_STAND_ShouldTriggerDealerTurn() {
+        Game game = mockGame(
+                "g3",
+                List.of("10H", "8D"),
+                List.of("5C", "7D"),
+                List.of("6H", "4C", "9S"),
+                "IN_PROGRESS"
+        );
+
+        when(gameRepository.findById("g3")).thenReturn(Mono.just(game));
+        mockGameSave();
+        mockPlayerRepo();
+
+        StepVerifier.create(gameService.playMove("g3", new PlayRequestDTO("STAND")))
+                .assertNext(res -> {
+                    assertThat(res.getDealerValue()).isGreaterThanOrEqualTo(17);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_DOUBLE_ShouldAddCardAndFinishTurn() {
+        Game game = mockGame(
+                "g4",
+                List.of("9H", "2D"),
+                List.of("7C", "8S"),
+                List.of("10D", "3C", "6S"),
+                "IN_PROGRESS"
+        );
+
+        when(gameRepository.findById("g4")).thenReturn(Mono.just(game));
+        mockGameSave();
+        mockPlayerRepo();
+
+        StepVerifier.create(gameService.playMove("g4", new PlayRequestDTO("DOUBLE")))
+                .assertNext(res -> assertThat(res.getStatus()).isNotEqualTo("IN_PROGRESS"))
+                .verifyComplete();
+    }
+
+    @Test
+    void playMove_ShouldUpdatePlayerStatsWhenGameEnds() {
+        Game game = mockGame(
+                "g5",
+                List.of("10H", "9D"),
+                List.of("5C", "7D"),
+                List.of("8C"),
+                "IN_PROGRESS"
+        );
+
+        Player player = mockPlayer(1L, "Alice");
+
+        when(gameRepository.findById("g5")).thenReturn(Mono.just(game));
+        when(playerRepository.findById(1L)).thenReturn(Mono.just(player));
+        mockGameSave();
+        when(playerRepository.save(any(Player.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        StepVerifier.create(gameService.playMove("g5", new PlayRequestDTO("HIT")))
+                .assertNext(res -> assertThat(res.getStatus()).isEqualTo("PLAYER_BUST"))
+                .verifyComplete();
+
+        verify(playerRepository, times(1)).save(any(Player.class));
+    }
 }

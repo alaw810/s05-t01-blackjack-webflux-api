@@ -1,8 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
-import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
+import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,6 +139,92 @@ class GameControllerTest {
                 .expectStatus().isOk();
 
         verify(gameService, times(1)).getGame("abc");
+    }
+
+    @Test
+    void playMove_ShouldReturn200AndGameState() {
+        PlayResultDTO result = PlayResultDTO.builder()
+                .gameId("g1")
+                .status("IN_PROGRESS")
+                .playerHand(List.of("5H", "6D", "9H"))
+                .dealerHand(List.of("10C", "7S"))
+                .playerValue(20)
+                .dealerValue(17)
+                .remainingDeckSize(40)
+                .build();
+
+        when(gameService.playMove("g1", new PlayRequestDTO("HIT")))
+                .thenReturn(Mono.just(result));
+
+        webTestClient.post()
+                .uri("/g1/play")
+                .bodyValue(new PlayRequestDTO("HIT"))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.gameId").isEqualTo("g1")
+                .jsonPath("$.status").isEqualTo("IN_PROGRESS")
+                .jsonPath("$.playerHand.length()").isEqualTo(3);
+    }
+
+    @Test
+    void playMove_ShouldReturn400_WhenMoveIsInvalid() {
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST)));
+
+        webTestClient.post()
+                .uri("/g1/play")
+                .bodyValue(new PlayRequestDTO("INVALID"))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void playMove_ShouldReturn404_WhenGameNotFound() {
+        when(gameService.playMove(eq("missing"), any()))
+                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+
+        webTestClient.post()
+                .uri("/missing/play")
+                .bodyValue(new PlayRequestDTO("HIT"))
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    void playMove_ShouldCallServiceWithCorrectArguments() {
+        PlayRequestDTO req = new PlayRequestDTO("STAND");
+
+        when(gameService.playMove("g123", req))
+                .thenReturn(Mono.just(
+                        PlayResultDTO.builder().gameId("g123").status("PLAYER_WIN").build()
+                ));
+
+        webTestClient.post()
+                .uri("/g123/play")
+                .bodyValue(req)
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(gameService, times(1)).playMove("g123", req);
+    }
+
+    @Test
+    void playMove_ShouldReturn400_WhenMoveIsEmpty() {
+        webTestClient.post()
+                .uri("/g1/play")
+                .bodyValue(new PlayRequestDTO(""))
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void playMove_ShouldReturn400_WhenMoveIsNull() {
+        webTestClient.post()
+                .uri("/g1/play")
+                .bodyValue(new PlayRequestDTO(null))
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
 }

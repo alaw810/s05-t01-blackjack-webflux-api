@@ -1,8 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
-import cat.itacademy.s05.t01.blackjack.dto.GameDetailsResponse;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
-import cat.itacademy.s05.t01.blackjack.dto.NewGameResponse;
+import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +33,20 @@ public class GameController {
     @ResponseStatus(HttpStatus.OK)
     public Mono<GameDetailsResponse> getGame(@PathVariable String id) {
         return gameService.getGame(id);
+    }
+
+    @PostMapping("/{id}/play")
+    @ResponseStatus(HttpStatus.OK)
+    public Mono<PlayResultDTO> playMove(
+            @PathVariable String id,
+            @RequestBody PlayRequestDTO request
+    ) {
+
+        if (request == null || request.move() == null || request.move().trim().isEmpty()) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Move cannot be empty"));
+        }
+
+        return gameService.playMove(id, request);
     }
 
 }
