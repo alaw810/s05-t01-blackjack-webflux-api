@@ -8,6 +8,8 @@ import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -299,4 +301,43 @@ class GameServiceTest {
 
         verify(playerRepository, times(1)).save(any(Player.class));
     }
+
+    @Test
+    void deleteGame_ShouldDeleteExistingGame() {
+        String gameId = "g100";
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.just(Game.builder().id(gameId).build()));
+
+        when(gameRepository.deleteById(gameId))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = gameService.deleteGame(gameId);
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(gameRepository, times(1)).deleteById(gameId);
+    }
+
+    @Test
+    void deleteGame_ShouldReturn404_WhenGameDoesNotExist() {
+        String gameId = "missing";
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(Mono.empty());
+
+        Mono<Void> result = gameService.deleteGame(gameId);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(error ->
+                        error instanceof ResponseStatusException &&
+                                ((ResponseStatusException) error)
+                                        .getStatusCode().value() == 404
+                )
+                .verify();
+
+        verify(gameRepository, never()).deleteById(anyString());
+    }
+
 }

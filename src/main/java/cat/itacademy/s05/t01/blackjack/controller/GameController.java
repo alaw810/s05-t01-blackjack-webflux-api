@@ -49,4 +49,10 @@ public class GameController {
         return gameService.playMove(id, request);
     }
 
+    @DeleteMapping("/{id}/delete")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Mono<Void> deleteGame(@PathVariable String id) {
+        return gameService.deleteGame(id);
+    }
+
 }

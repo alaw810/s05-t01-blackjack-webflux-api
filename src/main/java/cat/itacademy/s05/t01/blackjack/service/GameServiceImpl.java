@@ -110,6 +110,10 @@ public class GameServiceImpl implements GameService {
                 });
     }
 
+    @Override
+    public Mono<Void> deleteGame(String gameId) {
+        return Mono.empty();
+    }
 
     private Mono<Player> findOrCreatePlayer(String playerName) {
         return playerRepository.findByName(playerName)

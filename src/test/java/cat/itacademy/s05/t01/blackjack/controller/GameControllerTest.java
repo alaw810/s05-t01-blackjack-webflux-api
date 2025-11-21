@@ -227,4 +227,26 @@ class GameControllerTest {
                 .expectStatus().isBadRequest();
     }
 
+    @Test
+    void deleteGame_ShouldReturn204() {
+        when(gameService.deleteGame("g1"))
+                .thenReturn(Mono.empty());
+
+        webTestClient.delete().uri("/g1/delete")
+                .exchange()
+                .expectStatus().isNoContent();
+
+        verify(gameService, times(1)).deleteGame("g1");
+    }
+
+    @Test
+    void deleteGame_ShouldReturn404_WhenGameNotFound() {
+        when(gameService.deleteGame("missing"))
+                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+
+        webTestClient.delete().uri("/missing/delete")
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
 }
