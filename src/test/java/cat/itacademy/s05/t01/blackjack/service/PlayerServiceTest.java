@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
+import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
@@ -11,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -89,4 +91,44 @@ class PlayerServiceTest {
         verify(playerRepository, times(1)).findById(playerId);
         verify(playerRepository, never()).save(any(Player.class));
     }
+
+    @Test
+    void getRanking_ShouldReturnPlayersOrderedByWinsAndWinRate() {
+        Player p1 = Player.builder()
+                .id(1L).name("Alice")
+                .gamesPlayed(10).gamesWon(7).gamesLost(3)
+                .build();
+
+        Player p2 = Player.builder()
+                .id(2L).name("Bob")
+                .gamesPlayed(10).gamesWon(9).gamesLost(1)
+                .build();
+
+        Player p3 = Player.builder()
+                .id(3L).name("Charlie")
+                .gamesPlayed(10).gamesWon(9).gamesLost(1)
+                .build();
+
+        when(playerRepository.findAll())
+                .thenReturn(Flux.just(p1, p3, p2)); // desordenados
+
+        Flux<PlayerRankingResponse> result = playerService.getRanking();
+
+        StepVerifier.create(result)
+                .assertNext(r -> assertThat(r.getId()).isEqualTo(2L))  // Bob (9 wins)
+                .assertNext(r -> assertThat(r.getId()).isEqualTo(3L))  // Charlie (9 wins, same winRate)
+                .assertNext(r -> assertThat(r.getId()).isEqualTo(1L))  // Alice (7 wins)
+                .verifyComplete();
+    }
+
+    @Test
+    void getRanking_ShouldReturnEmptyList_WhenNoPlayersExist() {
+        when(playerRepository.findAll()).thenReturn(Flux.empty());
+
+        Flux<PlayerRankingResponse> result = playerService.getRanking();
+
+        StepVerifier.create(result)
+                .verifyComplete();
+    }
+
 }

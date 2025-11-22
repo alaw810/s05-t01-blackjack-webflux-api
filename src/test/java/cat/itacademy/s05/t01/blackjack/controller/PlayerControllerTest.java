@@ -1,5 +1,6 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
+import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
 import cat.itacademy.s05.t01.blackjack.service.PlayerService;
@@ -12,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -89,6 +91,26 @@ class PlayerControllerTest {
                 .expectStatus().isOk();
 
         verify(playerService, times(1)).updatePlayerName(10L, request);
+    }
+
+    @Test
+    void getRanking_ShouldReturn200AndListOfPlayers() {
+        PlayerRankingResponse r1 = PlayerRankingResponse.builder()
+                .id(1L).name("Alice").gamesWon(7).build();
+
+        PlayerRankingResponse r2 = PlayerRankingResponse.builder()
+                .id(2L).name("Bob").gamesWon(9).build();
+
+        when(playerService.getRanking())
+                .thenReturn(Flux.just(r1, r2));
+
+        webTestClient.get()
+                .uri("/ranking")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.length()").isEqualTo(2)
+                .jsonPath("$[0].name").isEqualTo("Alice");
     }
 
 }
