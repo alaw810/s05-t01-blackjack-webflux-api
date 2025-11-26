@@ -3,6 +3,7 @@ package cat.itacademy.s05.t01.blackjack.service;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import org.junit.jupiter.api.Test;
@@ -81,11 +82,7 @@ class PlayerServiceTest {
                 playerService.updatePlayerName(playerId, new PlayerUpdateRequest("DoesNotMatter"));
 
         StepVerifier.create(result)
-                .expectErrorMatches(error ->
-                        error instanceof ResponseStatusException &&
-                                ((ResponseStatusException) error)
-                                        .getStatusCode().value() == HttpStatus.NOT_FOUND.value()
-                )
+                .expectError(NotFoundException.class)
                 .verify();
 
         verify(playerRepository, times(1)).findById(playerId);

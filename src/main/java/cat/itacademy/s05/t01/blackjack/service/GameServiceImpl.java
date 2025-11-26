@@ -1,6 +1,8 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
+import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
@@ -61,12 +63,7 @@ public class GameServiceImpl implements GameService {
     @Override
     public Mono<GameDetailsResponse> getGame(String gameId) {
         return gameRepository.findById(gameId)
-                .switchIfEmpty(Mono.error(
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Game not found"
-                        )
-                ))
+                .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
                 .map(game -> {
                     int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
                     int dealerValue = BlackjackRules.calculateHandValue(game.getDealerHand());
@@ -90,15 +87,15 @@ public class GameServiceImpl implements GameService {
         String move = request.move() != null ? request.move().trim().toUpperCase() : "";
 
         if (!List.of("HIT", "STAND", "DOUBLE").contains(move)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid move"));
+            return Mono.error(new InvalidMoveException("Invalid move"));
         }
 
         return gameRepository.findById(gameId)
-                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found")))
+                .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
                 .flatMap(game -> {
 
                     if (!"IN_PROGRESS".equals(game.getStatus())) {
-                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Game is already finished"));
+                        return Mono.error(new IllegalStateException("Game is already finished"));
                     }
 
                     return switch (move) {
@@ -113,7 +110,7 @@ public class GameServiceImpl implements GameService {
     @Override
     public Mono<Void> deleteGame(String gameId) {
         return gameRepository.findById(gameId)
-                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)))
+                .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
                 .flatMap(game -> gameRepository.deleteById(gameId));
     }
 
