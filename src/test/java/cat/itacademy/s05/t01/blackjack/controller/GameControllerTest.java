@@ -1,6 +1,7 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
+import cat.itacademy.s05.t01.blackjack.exception.GlobalExceptionHandler;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class GameControllerTest {
     void setUp() {
         webTestClient = WebTestClient
                 .bindToController(gameController)
+                .controllerAdvice(new GlobalExceptionHandler())
                 .configureClient()
                 .baseUrl("/game")
                 .build();

@@ -1,6 +1,7 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
@@ -196,7 +197,7 @@ class GameServiceTest {
         when(gameRepository.findById("not-found")).thenReturn(Mono.empty());
 
         StepVerifier.create(gameService.getGame("not-found"))
-                .expectErrorMatches(e -> e instanceof org.springframework.web.server.ResponseStatusException)
+                .expectError(NotFoundException.class)
                 .verify();
     }
 
@@ -330,11 +331,7 @@ class GameServiceTest {
         Mono<Void> result = gameService.deleteGame(gameId);
 
         StepVerifier.create(result)
-                .expectErrorMatches(error ->
-                        error instanceof ResponseStatusException &&
-                                ((ResponseStatusException) error)
-                                        .getStatusCode().value() == 404
-                )
+                .expectError(NotFoundException.class)
                 .verify();
 
         verify(gameRepository, never()).deleteById(anyString());

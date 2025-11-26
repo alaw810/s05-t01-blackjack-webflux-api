@@ -3,6 +3,8 @@ package cat.itacademy.s05.t01.blackjack.service;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
+import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,11 +23,11 @@ public class PlayerServiceImpl implements PlayerService {
     public Mono<PlayerResponse> updatePlayerName(Long playerId, PlayerUpdateRequest request) {
 
         if (request == null || request.newName() == null || request.newName().trim().isEmpty()) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name cannot be empty"));
+            return Mono.error(new ValidationException("Name cannot be empty"));
         }
 
         return playerRepository.findById(playerId)
-                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)))
+                .switchIfEmpty(Mono.error(new NotFoundException("Player not found")))
                 .flatMap(player -> {
                     player.setName(request.newName().trim());
                     return playerRepository.save(player);
