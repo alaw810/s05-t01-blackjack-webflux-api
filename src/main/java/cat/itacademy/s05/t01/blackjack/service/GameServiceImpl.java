@@ -4,14 +4,13 @@ import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
+import cat.itacademy.s05.t01.blackjack.model.mongo.GameStatus;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import cat.itacademy.s05.t01.blackjack.util.BlackjackRules;
 import cat.itacademy.s05.t01.blackjack.util.DeckFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -52,7 +51,7 @@ public class GameServiceImpl implements GameService {
                             .playerHand(playerHand)
                             .dealerHand(dealerHand)
                             .deck(deck)
-                            .status("IN_PROGRESS")
+                            .status(GameStatus.IN_PROGRESS)
                             .build();
 
                     return gameRepository.save(game)
@@ -74,7 +73,7 @@ public class GameServiceImpl implements GameService {
                             .playerId(game.getPlayerId())
                             .playerHand(game.getPlayerHand())
                             .dealerHand(game.getDealerHand())
-                            .status(game.getStatus())
+                            .status(game.getStatus() != null ? game.getStatus().name() : null)
                             .playerHandValue(playerValue)
                             .dealerHandValue(dealerValue)
                             .remainingDeckSize(deckSize)
@@ -94,7 +93,7 @@ public class GameServiceImpl implements GameService {
                 .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
                 .flatMap(game -> {
 
-                    if (!"IN_PROGRESS".equals(game.getStatus())) {
+                    if (game.getStatus() != GameStatus.IN_PROGRESS) {
                         return Mono.error(new IllegalStateException("Game is already finished"));
                     }
 
@@ -151,7 +150,7 @@ public class GameServiceImpl implements GameService {
                 .playerHandValue(playerValue)
                 .dealerHandValue(dealerValue)
                 .remainingDeckSize(game.getDeck() != null ? game.getDeck().size() : 0)
-                .status(game.getStatus())
+                .status(game.getStatus() != null ? game.getStatus().name() : null)
                 .build();
     }
 
@@ -165,7 +164,7 @@ public class GameServiceImpl implements GameService {
         int playerValue = BlackjackRules.calculateHandValue(playerHand);
 
         if (playerValue > 21) {
-            game.setStatus("PLAYER_BUST");
+            game.setStatus(GameStatus.PLAYER_BUST);
             return endGameAndUpdateStats(game)
                     .map(savedGame -> toPlayResult(savedGame));
         }
@@ -186,13 +185,13 @@ public class GameServiceImpl implements GameService {
         int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
 
         if (dealerValue > 21) {
-            game.setStatus("DEALER_BUST");
+            game.setStatus(GameStatus.DEALER_BUST);
         } else if (dealerValue > playerValue) {
-            game.setStatus("PLAYER_LOSE");
+            game.setStatus(GameStatus.PLAYER_LOSE);
         } else if (dealerValue < playerValue) {
-            game.setStatus("PLAYER_WIN");
+            game.setStatus(GameStatus.PLAYER_WIN);
         } else {
-            game.setStatus("TIE");
+            game.setStatus(GameStatus.TIE);
         }
 
         return endGameAndUpdateStats(game)
@@ -209,7 +208,7 @@ public class GameServiceImpl implements GameService {
         int playerValue = BlackjackRules.calculateHandValue(playerHand);
 
         if (playerValue > 21) {
-            game.setStatus("PLAYER_BUST");
+            game.setStatus(GameStatus.PLAYER_BUST);
             return endGameAndUpdateStats(game)
                     .map(this::toPlayResult);
         }
@@ -223,8 +222,9 @@ public class GameServiceImpl implements GameService {
                     player.setGamesPlayed(player.getGamesPlayed() + 1);
 
                     switch (game.getStatus()) {
-                        case "PLAYER_WIN" -> player.setGamesWon(player.getGamesWon() + 1);
-                        case "PLAYER_LOSE", "PLAYER_BUST" -> player.setGamesLost(player.getGamesLost() + 1);
+                        case PLAYER_WIN -> player.setGamesWon(player.getGamesWon() + 1);
+                        case PLAYER_LOSE, PLAYER_BUST -> player.setGamesLost(player.getGamesLost() + 1);
+                        case DEALER_BUST, TIE, IN_PROGRESS -> { /* de momento nada, ajustaremos DEALER_BUST luego */ }
                     }
 
                     return playerRepository.save(player);
@@ -238,13 +238,13 @@ public class GameServiceImpl implements GameService {
 
         return PlayResultDTO.builder()
                 .gameId(game.getId())
-                .status(game.getStatus())
+                .status(game.getStatus() != null ? game.getStatus().name() : null)
                 .playerHand(game.getPlayerHand())
                 .dealerHand(game.getDealerHand())
                 .playerValue(playerValue)
                 .dealerValue(dealerValue)
                 .remainingDeckSize(game.getDeck().size())
-                .message(game.getStatus())
+                .message(game.getStatus() != null ? game.getStatus().name() : null)
                 .build();
     }
 }

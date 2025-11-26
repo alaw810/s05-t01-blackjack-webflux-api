@@ -3,14 +3,13 @@ package cat.itacademy.s05.t01.blackjack.service;
 import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
+import cat.itacademy.s05.t01.blackjack.model.mongo.GameStatus;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -55,7 +54,7 @@ class GameServiceTest {
             List<String> player,
             List<String> dealer,
             List<String> deck,
-            String status
+            GameStatus status
     ) {
         return Game.builder()
                 .id(id)
@@ -177,7 +176,7 @@ class GameServiceTest {
                 List.of("AH", "7D"),
                 List.of("9C", "6S"),
                 List.of("2H", "4D", "KC"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("game-100"))
@@ -208,7 +207,7 @@ class GameServiceTest {
                 List.of("5H", "6D"),
                 List.of("10C", "7S"),
                 List.of("9H", "4C", "8D"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g1")).thenReturn(Mono.just(game));
@@ -226,7 +225,7 @@ class GameServiceTest {
                 List.of("10H", "9D"),
                 List.of("5C", "7D"),
                 List.of("8C", "6H"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g2")).thenReturn(Mono.just(game));
@@ -245,7 +244,7 @@ class GameServiceTest {
                 List.of("10H", "8D"),
                 List.of("5C", "7D"),
                 List.of("6H", "4C", "9S"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g3")).thenReturn(Mono.just(game));
@@ -266,7 +265,7 @@ class GameServiceTest {
                 List.of("9H", "2D"),
                 List.of("7C", "8S"),
                 List.of("10D", "3C", "6S"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g4")).thenReturn(Mono.just(game));
@@ -285,7 +284,7 @@ class GameServiceTest {
                 List.of("10H", "9D"),
                 List.of("5C", "7D"),
                 List.of("8C"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         Player player = mockPlayer(1L, "Alice");
