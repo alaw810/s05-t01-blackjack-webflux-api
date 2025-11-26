@@ -25,6 +25,14 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleResponseStatus(ResponseStatusException ex,
+                                                                    ServerWebExchange exchange) {
+        HttpStatus status = (HttpStatus) ex.getStatusCode();
+        ErrorResponse body = buildErrorResponse(status, ex, exchange);
+        return Mono.just(ResponseEntity.status(status).body(body));
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleNotFound(NotFoundException ex, ServerWebExchange exchange) {
         HttpStatus status = HttpStatus.NOT_FOUND;
@@ -39,16 +47,8 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.status(status).body(body));
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleResponseStatus(ResponseStatusException ex,
-                                                                    ServerWebExchange exchange) {
-        HttpStatus status = (HttpStatus) ex.getStatusCode();
-        ErrorResponse body = buildErrorResponse(status, ex, exchange);
-        return Mono.just(ResponseEntity.status(status).body(body));
-    }
-
     @ExceptionHandler(Exception.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleGenericException(Exception ex, ServerWebExchange exchange) {
+    public Mono<ResponseEntity<ErrorResponse>> handleGeneric(Exception ex, ServerWebExchange exchange) {
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
         ErrorResponse body = buildErrorResponse(status, ex, exchange);
         return Mono.just(ResponseEntity.status(status).body(body));
