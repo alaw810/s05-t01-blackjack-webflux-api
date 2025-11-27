@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -25,14 +26,6 @@ public class GlobalExceptionHandler {
                 .build();
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleResponseStatus(ResponseStatusException ex,
-                                                                    ServerWebExchange exchange) {
-        HttpStatus status = (HttpStatus) ex.getStatusCode();
-        ErrorResponse body = buildErrorResponse(status, ex, exchange);
-        return Mono.just(ResponseEntity.status(status).body(body));
-    }
-
     @ExceptionHandler(NotFoundException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleNotFound(NotFoundException ex, ServerWebExchange exchange) {
         HttpStatus status = HttpStatus.NOT_FOUND;
@@ -43,6 +36,31 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({InvalidMoveException.class, ValidationException.class, IllegalStateException.class})
     public Mono<ResponseEntity<ErrorResponse>> handleBadRequest(RuntimeException ex, ServerWebExchange exchange) {
         HttpStatus status = HttpStatus.BAD_REQUEST;
+        ErrorResponse body = buildErrorResponse(status, ex, exchange);
+        return Mono.just(ResponseEntity.status(status).body(body));
+    }
+
+    @ExceptionHandler(WebExchangeBindException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleBindException(WebExchangeBindException ex, ServerWebExchange exchange) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+
+        String msg = ex.getFieldErrors().isEmpty()
+                ? "Validation failed"
+                : ex.getFieldErrors().get(0).getDefaultMessage();
+
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(OffsetDateTime.now().toString())
+                .error(status.name())
+                .message(msg)
+                .path(exchange.getRequest().getPath().value())
+                .build();
+
+        return Mono.just(ResponseEntity.status(status).body(body));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleResponseStatus(ResponseStatusException ex, ServerWebExchange exchange) {
+        HttpStatus status = (HttpStatus) ex.getStatusCode();
         ErrorResponse body = buildErrorResponse(status, ex, exchange);
         return Mono.just(ResponseEntity.status(status).body(body));
     }
