@@ -2,6 +2,8 @@ package cat.itacademy.s05.t01.blackjack.controller;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.exception.GlobalExceptionHandler;
+import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
+import cat.itacademy.s05.t01.blackjack.model.mongo.Move;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -155,12 +157,12 @@ class GameControllerTest {
                 .remainingDeckSize(40)
                 .build();
 
-        when(gameService.playMove("g1", new PlayRequestDTO("HIT")))
+        when(gameService.playMove("g1", new PlayRequestDTO(Move.HIT)))
                 .thenReturn(Mono.just(result));
 
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO("HIT"))
+                .bodyValue(new PlayRequestDTO(Move.HIT))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -171,14 +173,14 @@ class GameControllerTest {
 
     @Test
     void playMove_ShouldReturn400_WhenMoveIsInvalid() {
-        when(gameService.playMove(eq("g1"), any()))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST)));
-
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO("INVALID"))
+                .bodyValue("{\"move\": \"INVALID\"}")
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Move must be provided");
+
     }
 
     @Test
@@ -188,14 +190,14 @@ class GameControllerTest {
 
         webTestClient.post()
                 .uri("/missing/play")
-                .bodyValue(new PlayRequestDTO("HIT"))
+                .bodyValue(new PlayRequestDTO(Move.HIT))
                 .exchange()
                 .expectStatus().isNotFound();
     }
 
     @Test
     void playMove_ShouldCallServiceWithCorrectArguments() {
-        PlayRequestDTO req = new PlayRequestDTO("STAND");
+        PlayRequestDTO req = new PlayRequestDTO(Move.STAND);
 
         when(gameService.playMove("g123", req))
                 .thenReturn(Mono.just(
@@ -212,21 +214,41 @@ class GameControllerTest {
     }
 
     @Test
-    void playMove_ShouldReturn400_WhenMoveIsEmpty() {
+    void playMove_ShouldReturn400_WhenMoveIsNull() {
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO(""))
+                .bodyValue("{\"move\": null}")
                 .exchange()
                 .expectStatus().isBadRequest();
     }
 
     @Test
-    void playMove_ShouldReturn400_WhenMoveIsNull() {
+    void playMove_ShouldReturn400_WhenGameIsAlreadyFinished() {
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.error(new IllegalStateException("Game is already finished")));
+
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO(null))
+                .bodyValue(new PlayRequestDTO(Move.HIT))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Game is already finished");
+    }
+
+    @Test
+    void playMove_ShouldReturn400_WhenMoveIsNotAllowed() {
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.error(new InvalidMoveException("Invalid move")));
+
+        webTestClient.post()
+                .uri("/g1/play")
+                .bodyValue(new PlayRequestDTO(Move.HIT))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("BAD_REQUEST")
+                .jsonPath("$.message").isEqualTo("Invalid move");
     }
 
     @Test

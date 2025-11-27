@@ -3,6 +3,7 @@ package cat.itacademy.s05.t01.blackjack.controller;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.service.PlayerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,7 +67,7 @@ class PlayerControllerTest {
     @Test
     void updatePlayerName_ShouldReturn404_WhenPlayerNotFound() {
         when(playerService.updatePlayerName(eq(50L), any()))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+                .thenReturn(Mono.error(new NotFoundException("Player not found")));
 
         webTestClient.put()
                 .uri("/50")
@@ -91,6 +92,17 @@ class PlayerControllerTest {
                 .expectStatus().isOk();
 
         verify(playerService, times(1)).updatePlayerName(10L, request);
+    }
+
+    @Test
+    void updatePlayerName_ShouldReturn400_WhenNameIsEmpty() {
+        webTestClient.put()
+                .uri("/1")
+                .bodyValue("{\"newName\": \"\"}")
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Name cannot be empty");
     }
 
     @Test
