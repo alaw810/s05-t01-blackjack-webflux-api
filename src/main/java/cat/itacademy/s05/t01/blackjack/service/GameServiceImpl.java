@@ -1,10 +1,10 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
-import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
 import cat.itacademy.s05.t01.blackjack.model.mongo.GameStatus;
+import cat.itacademy.s05.t01.blackjack.model.mongo.Move;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
@@ -83,11 +83,7 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public Mono<PlayResultDTO> playMove(String gameId, PlayRequestDTO request) {
-        String move = request.move() != null ? request.move().trim().toUpperCase() : "";
-
-        if (!List.of("HIT", "STAND", "DOUBLE").contains(move)) {
-            return Mono.error(new InvalidMoveException("Invalid move"));
-        }
+        Move move = request.move();
 
         return gameRepository.findById(gameId)
                 .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
@@ -98,10 +94,9 @@ public class GameServiceImpl implements GameService {
                     }
 
                     return switch (move) {
-                        case "HIT" -> handleHit(gameId, game);
-                        case "STAND" -> handleStand(gameId, game);
-                        case "DOUBLE" -> handleDouble(gameId, game);
-                        default -> Mono.error(new IllegalStateException("Unknown move"));
+                        case HIT -> handleHit(game);
+                        case STAND -> handleStand(game);
+                        case DOUBLE -> handleDouble(game);
                     };
                 });
     }
@@ -154,7 +149,7 @@ public class GameServiceImpl implements GameService {
                 .build();
     }
 
-    private Mono<PlayResultDTO> handleHit(String gameId, Game game) {
+    private Mono<PlayResultDTO> handleHit(Game game) {
         List<String> deck = game.getDeck();
         List<String> playerHand = game.getPlayerHand();
 
@@ -165,15 +160,14 @@ public class GameServiceImpl implements GameService {
 
         if (playerValue > 21) {
             game.setStatus(GameStatus.PLAYER_BUST);
-            return endGameAndUpdateStats(game)
-                    .map(savedGame -> toPlayResult(savedGame));
+            return endGame(game);
         }
 
         return gameRepository.save(game)
                 .map(this::toPlayResult);
     }
 
-    private Mono<PlayResultDTO> handleStand(String gameId, Game game) {
+    private Mono<PlayResultDTO> handleStand(Game game) {
         List<String> deck = game.getDeck();
         List<String> dealerHand = game.getDealerHand();
 
@@ -185,7 +179,7 @@ public class GameServiceImpl implements GameService {
         int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
 
         if (dealerValue > 21) {
-            game.setStatus(GameStatus.DEALER_BUST);
+            game.setStatus(GameStatus.PLAYER_WIN);
         } else if (dealerValue > playerValue) {
             game.setStatus(GameStatus.PLAYER_LOSE);
         } else if (dealerValue < playerValue) {
@@ -194,11 +188,10 @@ public class GameServiceImpl implements GameService {
             game.setStatus(GameStatus.TIE);
         }
 
-        return endGameAndUpdateStats(game)
-                .map(this::toPlayResult);
+        return endGame(game);
     }
 
-    private Mono<PlayResultDTO> handleDouble(String gameId, Game game) {
+    private Mono<PlayResultDTO> handleDouble(Game game) {
         List<String> deck = game.getDeck();
         List<String> playerHand = game.getPlayerHand();
 
@@ -209,27 +202,26 @@ public class GameServiceImpl implements GameService {
 
         if (playerValue > 21) {
             game.setStatus(GameStatus.PLAYER_BUST);
-            return endGameAndUpdateStats(game)
-                    .map(this::toPlayResult);
+            return endGame(game);
         }
-        return handleStand(gameId, game);
+        return handleStand(game);
     }
 
-    private Mono<Game> endGameAndUpdateStats(Game game) {
+    private Mono<PlayResultDTO> endGame(Game game) {
         return playerRepository.findById(game.getPlayerId())
                 .flatMap(player -> {
-
                     player.setGamesPlayed(player.getGamesPlayed() + 1);
 
                     switch (game.getStatus()) {
                         case PLAYER_WIN -> player.setGamesWon(player.getGamesWon() + 1);
                         case PLAYER_LOSE, PLAYER_BUST -> player.setGamesLost(player.getGamesLost() + 1);
-                        case DEALER_BUST, TIE, IN_PROGRESS -> { /* de momento nada, ajustaremos DEALER_BUST luego */ }
+                        case TIE, DEALER_BUST, IN_PROGRESS -> {}
                     }
 
                     return playerRepository.save(player);
                 })
-                .flatMap(p -> gameRepository.save(game));
+                .flatMap(p -> gameRepository.save(game))
+                .map(this::toPlayResult);
     }
 
     private PlayResultDTO toPlayResult(Game game) {
@@ -244,7 +236,18 @@ public class GameServiceImpl implements GameService {
                 .playerValue(playerValue)
                 .dealerValue(dealerValue)
                 .remainingDeckSize(game.getDeck().size())
-                .message(game.getStatus() != null ? game.getStatus().name() : null)
+                .message(toHumanMessage(game.getStatus()))
                 .build();
+    }
+
+    private String toHumanMessage(GameStatus status) {
+        return switch (status) {
+            case PLAYER_WIN -> "Player wins!";
+            case PLAYER_LOSE -> "Player loses!";
+            case PLAYER_BUST -> "Player busts!";
+            case TIE -> "It's a tie!";
+            case IN_PROGRESS -> "Game in progress";
+            case DEALER_BUST -> "Dealer busts!";
+        };
     }
 }
