@@ -1,3 +1,8 @@
 package cat.itacademy.s05.t01.blackjack.dto;
 
-public record PlayerUpdateRequest(String newName) { }
+import jakarta.validation.constraints.NotBlank;
+
+public record PlayerUpdateRequest(
+        @NotBlank(message = "Name cannot be empty")
+        String newName
+) { }

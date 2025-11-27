@@ -4,6 +4,7 @@ import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
 import cat.itacademy.s05.t01.blackjack.service.PlayerService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
@@ -23,7 +24,7 @@ public class PlayerController {
     @ResponseStatus(HttpStatus.OK)
     public Mono<PlayerResponse> updatePlayerName(
             @PathVariable Long id,
-            @RequestBody PlayerUpdateRequest request
+            @Valid @RequestBody PlayerUpdateRequest request
     ) {
         return playerService.updatePlayerName(id, request);
     }

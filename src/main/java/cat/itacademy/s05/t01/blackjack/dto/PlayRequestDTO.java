@@ -1,3 +1,8 @@
 package cat.itacademy.s05.t01.blackjack.dto;
 
-public record PlayRequestDTO(String move) { }
+import jakarta.validation.constraints.NotBlank;
+
+public record PlayRequestDTO(
+        @NotBlank(message = "Move cannot be empty")
+        String move
+) { }
