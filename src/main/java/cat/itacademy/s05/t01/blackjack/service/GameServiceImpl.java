@@ -83,7 +83,7 @@ public class GameServiceImpl implements GameService {
 
     @Override
     public Mono<PlayResultDTO> playMove(String gameId, PlayRequestDTO request) {
-        Move move = request.move();
+        Move move = Move.from(request.move());
 
         return gameRepository.findById(gameId)
                 .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))

@@ -3,6 +3,7 @@ package cat.itacademy.s05.t01.blackjack.controller;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerRankingResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
+import cat.itacademy.s05.t01.blackjack.exception.GlobalExceptionHandler;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.service.PlayerService;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,9 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -36,6 +36,7 @@ class PlayerControllerTest {
     void setUp() {
         webTestClient = WebTestClient
                 .bindToController(playerController)
+                .controllerAdvice(new GlobalExceptionHandler())
                 .configureClient()
                 .baseUrl("/player")
                 .build();
@@ -56,6 +57,7 @@ class PlayerControllerTest {
 
         webTestClient.put()
                 .uri("/1")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new PlayerUpdateRequest("NewName"))
                 .exchange()
                 .expectStatus().isOk()
@@ -71,6 +73,7 @@ class PlayerControllerTest {
 
         webTestClient.put()
                 .uri("/50")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new PlayerUpdateRequest("Any"))
                 .exchange()
                 .expectStatus().isNotFound();
@@ -87,6 +90,7 @@ class PlayerControllerTest {
 
         webTestClient.put()
                 .uri("/10")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk();
@@ -98,11 +102,27 @@ class PlayerControllerTest {
     void updatePlayerName_ShouldReturn400_WhenNameIsEmpty() {
         webTestClient.put()
                 .uri("/1")
-                .bodyValue("{\"newName\": \"\"}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PlayerUpdateRequest(""))
                 .exchange()
                 .expectStatus().isBadRequest()
                 .expectBody()
                 .jsonPath("$.message").isEqualTo("Name cannot be empty");
+    }
+
+    @Test
+    void updatePlayerName_ShouldReturn500_OnUnexpectedError() {
+        when(playerService.updatePlayerName(eq(1L), any()))
+                .thenReturn(Mono.error(new RuntimeException("Boom")));
+
+        webTestClient.put().uri("/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PlayerUpdateRequest("Test"))
+                .exchange()
+                .expectStatus().is5xxServerError()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("INTERNAL_SERVER_ERROR")
+                .jsonPath("$.message").isEqualTo("Boom");
     }
 
     @Test
