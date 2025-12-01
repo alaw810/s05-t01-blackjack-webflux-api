@@ -19,5 +19,5 @@ public class NewGameResponse {
     private int dealerHandValue;
 
     private int remainingDeckSize;
-    private String status; // e.g. "IN_PROGRESS"
+    private String status;
 }

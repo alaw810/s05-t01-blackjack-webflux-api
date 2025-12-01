@@ -163,7 +163,7 @@ class GameServiceTest {
         StepVerifier.create(gameService.createNewGame(request))
                 .assertNext(res -> {
                     assertThat(res.getPlayerHand()).hasSize(2);
-                    assertThat(res.getDealerHand()).hasSize(2);
+                    assertThat(res.getDealerHand()).hasSize(1);
                     assertThat(res.getRemainingDeckSize()).isEqualTo(48);
                     assertThat(res.getStatus()).isEqualTo("IN_PROGRESS");
                 })

@@ -65,14 +65,14 @@ public class GameServiceImpl implements GameService {
                 .switchIfEmpty(Mono.error(new NotFoundException("Game not found")))
                 .map(game -> {
                     int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
-                    int dealerValue = BlackjackRules.calculateHandValue(game.getDealerHand());
+                    int dealerValue = getVisibleDealerValue(game);
                     int deckSize = game.getDeck() != null ? game.getDeck().size() : 0;
 
                     return GameDetailsResponse.builder()
                             .gameId(game.getId())
                             .playerId(game.getPlayerId())
                             .playerHand(game.getPlayerHand())
-                            .dealerHand(game.getDealerHand())
+                            .dealerHand(getVisibleDealerHand(game))
                             .status(game.getStatus() != null ? game.getStatus().name() : null)
                             .playerHandValue(playerValue)
                             .dealerHandValue(dealerValue)
@@ -135,13 +135,13 @@ public class GameServiceImpl implements GameService {
 
     private NewGameResponse toNewGameResponse(Game game, Player player) {
         int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
-        int dealerValue = BlackjackRules.calculateHandValue(game.getDealerHand());
+        int dealerValue = getVisibleDealerValue(game);
 
         return NewGameResponse.builder()
                 .gameId(game.getId())
                 .playerName(player.getName())
                 .playerHand(game.getPlayerHand())
-                .dealerHand(game.getDealerHand())
+                .dealerHand(getVisibleDealerHand(game))
                 .playerHandValue(playerValue)
                 .dealerHandValue(dealerValue)
                 .remainingDeckSize(game.getDeck() != null ? game.getDeck().size() : 0)
@@ -226,16 +226,16 @@ public class GameServiceImpl implements GameService {
 
     private PlayResultDTO toPlayResult(Game game) {
         int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
-        int dealerValue = BlackjackRules.calculateHandValue(game.getDealerHand());
+        int dealerValue = getVisibleDealerValue(game);
 
         return PlayResultDTO.builder()
                 .gameId(game.getId())
                 .status(game.getStatus() != null ? game.getStatus().name() : null)
                 .playerHand(game.getPlayerHand())
-                .dealerHand(game.getDealerHand())
+                .dealerHand(getVisibleDealerHand(game))
                 .playerValue(playerValue)
                 .dealerValue(dealerValue)
-                .remainingDeckSize(game.getDeck().size())
+                .remainingDeckSize(game.getDeck() != null ? game.getDeck().size() : 0)
                 .message(toHumanMessage(game.getStatus()))
                 .build();
     }
@@ -250,4 +250,23 @@ public class GameServiceImpl implements GameService {
             case DEALER_BUST -> "Dealer busts!";
         };
     }
+
+    private List<String> getVisibleDealerHand(Game game) {
+        List<String> dealerHand = game.getDealerHand();
+        if (dealerHand == null || dealerHand.isEmpty()) {
+            return List.of();
+        }
+
+        if (game.getStatus() == GameStatus.IN_PROGRESS && dealerHand.size() > 1) {
+            return List.of(dealerHand.get(0));
+        }
+
+        return dealerHand;
+    }
+
+    private int getVisibleDealerValue(Game game) {
+        List<String> visibleDealerHand = getVisibleDealerHand(game);
+        return BlackjackRules.calculateHandValue(visibleDealerHand);
+    }
+
 }
