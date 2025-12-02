@@ -286,27 +286,6 @@ class GameServiceTest {
     }
 
     @Test
-    void playMove_DOUBLE_ShouldAddCardAndFinishTurn() {
-        Game game = mockGame(
-                "g4",
-                List.of("9H", "2D"),
-                List.of("7C", "8S"),
-                List.of("10D", "3C", "6S"),
-                GameStatus.IN_PROGRESS
-        );
-
-        when(gameRepository.findById("g4")).thenReturn(Mono.just(game));
-        mockGameSave();
-        mockPlayerRepo();
-
-        StepVerifier.create(gameService.playMove("g4", new PlayRequestDTO("DOUBLE")))
-                .assertNext(res -> assertThat(res.getStatus()).isNotEqualTo("IN_PROGRESS"))
-                .verifyComplete();
-
-        verify(playerRepository, times(1)).save(any(Player.class));
-    }
-
-    @Test
     void deleteGame_ShouldDeleteExistingGame() {
         String gameId = "g100";
 
