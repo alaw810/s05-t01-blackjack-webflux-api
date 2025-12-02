@@ -45,20 +45,14 @@ The exercise focuses on:
 
 ## 📋 **Requirements**
 
-Before running the project, ensure you have:
+To run this project you need:
 
-* **Java 21**
-* **Maven 3.9+**
-* **Docker & Docker Compose** (to run MongoDB + MySQL)
-* IDE: IntelliJ IDEA recommended
+* **Java 21** (for local tests)
+* **Docker & Docker Compose** (for full runtime environment)
+* **Maven 3.9+** (for running tests locally)
 
-Docker containers used:
-
-| Service       | Version | Port  |
-| ------------- | ------- | ----- |
-| MongoDB       | 7.0     | 27017 |
-| MySQL (R2DBC) | 8.x     | 3306  |
-
+No local databases are required.
+All services run inside Docker containers.
 
 ---
 
@@ -71,42 +65,87 @@ git clone https://github.com/alaw810/s05-t01-blackjack-webflux-api.git
 cd s05-t01-blackjack-webflux-api
 ```
 
-### 2. Start databases with Docker
+### 2. Build the Docker stack (API + Databases)
+
+```bash
+docker compose build
+```
+
+This will build:
+
+* MongoDB
+* MySQL
+* The **Blackjack API** Docker image using your `Dockerfile`
+
+---
+
+# ▶️ **Execution (Docker Compose)**
+
+Run the entire environment with:
 
 ```bash
 docker compose up -d
 ```
 
-This will start:
+This starts three containers:
 
-* `mongodb`
-* `mysql` with schema initialization
+| Service       | Container       | Port     | Description              |
+| ------------- | --------------- | -------- | ------------------------ |
+| Blackjack API | `blackjack-api` | **8080** | WebFlux application      |
+| MongoDB       | `mongodb`       | 27017    | Stores games             |
+| MySQL         | `mysql`         | 3306     | Stores players & ranking |
 
-### 3. Build the project
-
-```bash
-mvn clean install
-```
-
-## ▶️ **Execution**
-
-Run the application:
-
-```bash
-mvn spring-boot:run
-```
-
-API will be available at:
+The API runs automatically using the `docker` profile:
 
 ```
-http://localhost:8080
+SPRING_PROFILES_ACTIVE=docker
 ```
+
+which loads `application-docker.yml`.
+
+---
+
+## 🌐 Access the API
 
 Swagger/OpenAPI:
 
 ```
 http://localhost:8080/swagger-ui.html
 ```
+
+---
+
+## 🐳 Stop and remove services
+
+```bash
+docker compose down
+```
+
+---
+
+# 📁 **Project Structure**
+
+```
+src/main/java/cat/itacademy/s05/t01/blackjack
+├── controller
+├── service
+├── repository
+├── model
+│   ├── mysql
+│   └── mongo
+├── dto
+├── exception
+└── util
+```
+
+### Key decisions:
+
+* **MongoDB** → Game sessions (dynamic documents)
+* **MySQL** → Players and ranking
+* **DTOs** separate from models
+* **Controllers** contain zero business logic
+* **Service layer** handles all game rules
+* **Utility classes** encapsulate Blackjack math & deck building
 
 ---
 
