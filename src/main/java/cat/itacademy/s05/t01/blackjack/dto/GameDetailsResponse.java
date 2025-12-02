@@ -14,5 +14,4 @@ public class GameDetailsResponse {
     private String status;
     private int playerHandValue;
     private int dealerHandValue;
-    private int remainingDeckSize;
 }

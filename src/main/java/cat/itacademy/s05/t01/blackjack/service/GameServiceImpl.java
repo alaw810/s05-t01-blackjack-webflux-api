@@ -76,7 +76,6 @@ public class GameServiceImpl implements GameService {
                             .status(game.getStatus() != null ? game.getStatus().name() : null)
                             .playerHandValue(playerValue)
                             .dealerHandValue(dealerValue)
-                            .remainingDeckSize(deckSize)
                             .build();
                 });
     }
@@ -96,7 +95,6 @@ public class GameServiceImpl implements GameService {
                     return switch (move) {
                         case HIT -> handleHit(game);
                         case STAND -> handleStand(game);
-                        case DOUBLE -> handleDouble(game);
                     };
                 });
     }
@@ -144,7 +142,6 @@ public class GameServiceImpl implements GameService {
                 .dealerHand(getVisibleDealerHand(game))
                 .playerHandValue(playerValue)
                 .dealerHandValue(dealerValue)
-                .remainingDeckSize(game.getDeck() != null ? game.getDeck().size() : 0)
                 .status(game.getStatus() != null ? game.getStatus().name() : null)
                 .build();
     }
@@ -191,22 +188,6 @@ public class GameServiceImpl implements GameService {
         return endGame(game);
     }
 
-    private Mono<PlayResultDTO> handleDouble(Game game) {
-        List<String> deck = game.getDeck();
-        List<String> playerHand = game.getPlayerHand();
-
-        String card = deck.remove(0);
-        playerHand.add(card);
-
-        int playerValue = BlackjackRules.calculateHandValue(playerHand);
-
-        if (playerValue > 21) {
-            game.setStatus(GameStatus.PLAYER_BUST);
-            return endGame(game);
-        }
-        return handleStand(game);
-    }
-
     private Mono<PlayResultDTO> endGame(Game game) {
         return playerRepository.findById(game.getPlayerId())
                 .flatMap(player -> {
@@ -235,7 +216,6 @@ public class GameServiceImpl implements GameService {
                 .dealerHand(getVisibleDealerHand(game))
                 .playerValue(playerValue)
                 .dealerValue(dealerValue)
-                .remainingDeckSize(game.getDeck() != null ? game.getDeck().size() : 0)
                 .message(toHumanMessage(game.getStatus()))
                 .build();
     }

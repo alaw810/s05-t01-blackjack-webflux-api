@@ -50,7 +50,6 @@ class GameControllerTest {
                 .dealerHand(List.of("7C", "8S"))
                 .playerHandValue(16)
                 .dealerHandValue(15)
-                .remainingDeckSize(48)
                 .status("IN_PROGRESS")
                 .build();
 
@@ -106,7 +105,6 @@ class GameControllerTest {
                 .status("IN_PROGRESS")
                 .playerHandValue(18)
                 .dealerHandValue(15)
-                .remainingDeckSize(40)
                 .build();
 
         when(gameService.getGame("123"))
@@ -170,7 +168,6 @@ class GameControllerTest {
                 .dealerHand(List.of("10C", "7S"))
                 .playerValue(20)
                 .dealerValue(17)
-                .remainingDeckSize(40)
                 .build();
 
         when(gameService.playMove("g1", new PlayRequestDTO("HIT")))
@@ -275,7 +272,6 @@ class GameControllerTest {
                 .dealerHand(List.of("5C", "7D"))
                 .playerValue(19)
                 .dealerValue(12)
-                .remainingDeckSize(40)
                 .message("Player wins!")
                 .build();
 

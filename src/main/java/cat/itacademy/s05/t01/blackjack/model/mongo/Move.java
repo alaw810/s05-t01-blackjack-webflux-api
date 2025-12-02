@@ -3,7 +3,7 @@ package cat.itacademy.s05.t01.blackjack.model.mongo;
 import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
 
 public enum Move {
-    HIT, STAND, DOUBLE;
+    HIT, STAND;
 
     public static Move from(String raw) {
         if (raw == null || raw.isBlank()) {
