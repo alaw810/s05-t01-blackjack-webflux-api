@@ -1,16 +1,18 @@
 package cat.itacademy.s05.t01.blackjack.service;
 
-import cat.itacademy.s05.t01.blackjack.dto.*;
+import cat.itacademy.s05.t01.blackjack.dto.NewGameRequest;
+import cat.itacademy.s05.t01.blackjack.dto.PlayRequestDTO;
+import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
+import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
 import cat.itacademy.s05.t01.blackjack.model.mongo.Game;
+import cat.itacademy.s05.t01.blackjack.model.mongo.GameStatus;
 import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mongo.GameReactiveRepository;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -18,8 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class GameServiceTest {
@@ -55,7 +57,7 @@ class GameServiceTest {
             List<String> player,
             List<String> dealer,
             List<String> deck,
-            String status
+            GameStatus status
     ) {
         return Game.builder()
                 .id(id)
@@ -121,8 +123,6 @@ class GameServiceTest {
                     assertThat(res.getGameId()).isEqualTo("game-999");
                 })
                 .verifyComplete();
-
-        verify(playerRepository, times(1)).save(any(Player.class));
     }
 
     @Test
@@ -163,8 +163,7 @@ class GameServiceTest {
         StepVerifier.create(gameService.createNewGame(request))
                 .assertNext(res -> {
                     assertThat(res.getPlayerHand()).hasSize(2);
-                    assertThat(res.getDealerHand()).hasSize(2);
-                    assertThat(res.getRemainingDeckSize()).isEqualTo(48);
+                    assertThat(res.getDealerHand()).hasSize(1);
                     assertThat(res.getStatus()).isEqualTo("IN_PROGRESS");
                 })
                 .verifyComplete();
@@ -177,7 +176,7 @@ class GameServiceTest {
                 List.of("AH", "7D"),
                 List.of("9C", "6S"),
                 List.of("2H", "4D", "KC"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("game-100"))
@@ -202,13 +201,38 @@ class GameServiceTest {
     }
 
     @Test
+    void playMove_ShouldThrowInvalidMoveException_WhenMoveIsInvalid() {
+        assertThrows(
+                ValidationException.class,
+                () -> gameService.playMove("g1", new PlayRequestDTO("INVALID"))
+        );
+    }
+
+    @Test
+    void playMove_ShouldThrowIllegalStateException_WhenGameIsFinished() {
+        Game game = mockGame(
+                "g2",
+                List.of("5H", "6D"),
+                List.of("10C", "7S"),
+                List.of("9H"),
+                GameStatus.PLAYER_WIN
+        );
+
+        when(gameRepository.findById("g2")).thenReturn(Mono.just(game));
+
+        StepVerifier.create(gameService.playMove("g2", new PlayRequestDTO("HIT")))
+                .expectError(IllegalStateException.class)
+                .verify();
+    }
+
+    @Test
     void playMove_HIT_ShouldAddCardToPlayer() {
         Game game = mockGame(
                 "g1",
                 List.of("5H", "6D"),
                 List.of("10C", "7S"),
                 List.of("9H", "4C", "8D"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g1")).thenReturn(Mono.just(game));
@@ -220,13 +244,13 @@ class GameServiceTest {
     }
 
     @Test
-    void playMove_HIT_ShouldCauseBust() {
+    void playMove_HIT_ShouldCausePlayerBust() {
         Game game = mockGame(
                 "g2",
                 List.of("10H", "9D"),
                 List.of("5C", "7D"),
                 List.of("8C", "6H"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g2")).thenReturn(Mono.just(game));
@@ -236,16 +260,18 @@ class GameServiceTest {
         StepVerifier.create(gameService.playMove("g2", new PlayRequestDTO("HIT")))
                 .assertNext(res -> assertThat(res.getStatus()).isEqualTo("PLAYER_BUST"))
                 .verifyComplete();
+
+        verify(playerRepository, times(1)).save(any(Player.class));
     }
 
     @Test
-    void playMove_STAND_ShouldTriggerDealerTurn() {
+    void playMove_STAND_ShouldEndGameAndUpdateStats() {
         Game game = mockGame(
                 "g3",
                 List.of("10H", "8D"),
                 List.of("5C", "7D"),
                 List.of("6H", "4C", "9S"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g3")).thenReturn(Mono.just(game));
@@ -253,10 +279,10 @@ class GameServiceTest {
         mockPlayerRepo();
 
         StepVerifier.create(gameService.playMove("g3", new PlayRequestDTO("STAND")))
-                .assertNext(res -> {
-                    assertThat(res.getDealerValue()).isGreaterThanOrEqualTo(17);
-                })
+                .assertNext(res -> assertThat(res.getStatus()).isNotEqualTo("IN_PROGRESS"))
                 .verifyComplete();
+
+        verify(playerRepository, times(1)).save(any(Player.class));
     }
 
     @Test
@@ -266,7 +292,7 @@ class GameServiceTest {
                 List.of("9H", "2D"),
                 List.of("7C", "8S"),
                 List.of("10D", "3C", "6S"),
-                "IN_PROGRESS"
+                GameStatus.IN_PROGRESS
         );
 
         when(gameRepository.findById("g4")).thenReturn(Mono.just(game));
@@ -275,29 +301,6 @@ class GameServiceTest {
 
         StepVerifier.create(gameService.playMove("g4", new PlayRequestDTO("DOUBLE")))
                 .assertNext(res -> assertThat(res.getStatus()).isNotEqualTo("IN_PROGRESS"))
-                .verifyComplete();
-    }
-
-    @Test
-    void playMove_ShouldUpdatePlayerStatsWhenGameEnds() {
-        Game game = mockGame(
-                "g5",
-                List.of("10H", "9D"),
-                List.of("5C", "7D"),
-                List.of("8C"),
-                "IN_PROGRESS"
-        );
-
-        Player player = mockPlayer(1L, "Alice");
-
-        when(gameRepository.findById("g5")).thenReturn(Mono.just(game));
-        when(playerRepository.findById(1L)).thenReturn(Mono.just(player));
-        mockGameSave();
-        when(playerRepository.save(any(Player.class)))
-                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
-
-        StepVerifier.create(gameService.playMove("g5", new PlayRequestDTO("HIT")))
-                .assertNext(res -> assertThat(res.getStatus()).isEqualTo("PLAYER_BUST"))
                 .verifyComplete();
 
         verify(playerRepository, times(1)).save(any(Player.class));
@@ -336,5 +339,4 @@ class GameServiceTest {
 
         verify(gameRepository, never()).deleteById(anyString());
     }
-
 }

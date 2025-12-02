@@ -23,5 +23,5 @@ public class Game {
 
     private List<String> deck;
 
-    private String status;
+    private GameStatus status;
 }

@@ -3,6 +3,7 @@ package cat.itacademy.s05.t01.blackjack.controller;
 import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,10 +21,7 @@ public class GameController {
 
     @PostMapping("/new")
     @ResponseStatus(HttpStatus.CREATED)
-    public Mono<NewGameResponse> createNewGame(@RequestBody NewGameRequest request) {
-        if (request == null || request.playerName() == null || request.playerName().trim().isEmpty()) {
-            return Mono.error(new ValidationException("Player name cannot be empty"));
-        }
+    public Mono<NewGameResponse> createNewGame(@Valid @RequestBody NewGameRequest request) {
         return gameService.createNewGame(request);
     }
 
@@ -37,12 +35,8 @@ public class GameController {
     @ResponseStatus(HttpStatus.OK)
     public Mono<PlayResultDTO> playMove(
             @PathVariable String id,
-            @RequestBody PlayRequestDTO request
+            @Valid @RequestBody PlayRequestDTO request
     ) {
-        if (request == null || request.move() == null || request.move().trim().isEmpty()) {
-            return Mono.error(new ValidationException("Move cannot be empty"));
-        }
-
         return gameService.playMove(id, request);
     }
 

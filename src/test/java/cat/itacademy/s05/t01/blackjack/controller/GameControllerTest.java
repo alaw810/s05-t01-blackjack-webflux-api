@@ -2,6 +2,8 @@ package cat.itacademy.s05.t01.blackjack.controller;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
 import cat.itacademy.s05.t01.blackjack.exception.GlobalExceptionHandler;
+import cat.itacademy.s05.t01.blackjack.exception.InvalidMoveException;
+import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,10 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -50,7 +50,6 @@ class GameControllerTest {
                 .dealerHand(List.of("7C", "8S"))
                 .playerHandValue(16)
                 .dealerHandValue(15)
-                .remainingDeckSize(48)
                 .status("IN_PROGRESS")
                 .build();
 
@@ -59,7 +58,7 @@ class GameControllerTest {
 
         webTestClient.post().uri("/new")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"playerName\": \"Alice\"}")
+                .bodyValue(new NewGameRequest("Alice"))
                 .exchange()
                 .expectStatus().isCreated()
                 .expectBody()
@@ -77,7 +76,7 @@ class GameControllerTest {
 
         webTestClient.post().uri("/new")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"playerName\": \"Charlie\"}")
+                .bodyValue(new NewGameRequest("Charlie"))
                 .exchange()
                 .expectStatus().isCreated();
 
@@ -88,9 +87,12 @@ class GameControllerTest {
     void createNewGame_ShouldReturn400_WhenNameIsEmpty() {
         webTestClient.post().uri("/new")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"playerName\": \"\"}")
+                .bodyValue(new NewGameRequest(""))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Player name cannot be empty");
+
     }
 
     @Test
@@ -103,7 +105,6 @@ class GameControllerTest {
                 .status("IN_PROGRESS")
                 .playerHandValue(18)
                 .dealerHandValue(15)
-                .remainingDeckSize(40)
                 .build();
 
         when(gameService.getGame("123"))
@@ -121,7 +122,7 @@ class GameControllerTest {
     @Test
     void getGame_ShouldReturn404_WhenGameNotFound() {
         when(gameService.getGame("missing"))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+                .thenReturn(Mono.error(new NotFoundException("Game not found")));
 
         webTestClient.get().uri("/missing")
                 .exchange()
@@ -144,6 +145,21 @@ class GameControllerTest {
     }
 
     @Test
+    void getGame_ShouldReturn404AndJson() {
+        when(gameService.getGame("missing"))
+                .thenReturn(Mono.error(new NotFoundException("Game not found")));
+
+        webTestClient.get().uri("/missing")
+                .exchange()
+                .expectStatus().isNotFound()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("NOT_FOUND")
+                .jsonPath("$.message").isEqualTo("Game not found")
+                .jsonPath("$.path").isEqualTo("/game/missing");
+    }
+
+
+    @Test
     void playMove_ShouldReturn200AndGameState() {
         PlayResultDTO result = PlayResultDTO.builder()
                 .gameId("g1")
@@ -152,7 +168,6 @@ class GameControllerTest {
                 .dealerHand(List.of("10C", "7S"))
                 .playerValue(20)
                 .dealerValue(17)
-                .remainingDeckSize(40)
                 .build();
 
         when(gameService.playMove("g1", new PlayRequestDTO("HIT")))
@@ -160,6 +175,7 @@ class GameControllerTest {
 
         webTestClient.post()
                 .uri("/g1/play")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new PlayRequestDTO("HIT"))
                 .exchange()
                 .expectStatus().isOk()
@@ -172,22 +188,26 @@ class GameControllerTest {
     @Test
     void playMove_ShouldReturn400_WhenMoveIsInvalid() {
         when(gameService.playMove(eq("g1"), any()))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST)));
+                .thenReturn(Mono.error(new InvalidMoveException("Move is invalid")));
 
         webTestClient.post()
                 .uri("/g1/play")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new PlayRequestDTO("INVALID"))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Move is invalid");
     }
 
     @Test
     void playMove_ShouldReturn404_WhenGameNotFound() {
         when(gameService.playMove(eq("missing"), any()))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+                .thenReturn(Mono.error(new NotFoundException("Game not found")));
 
         webTestClient.post()
                 .uri("/missing/play")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(new PlayRequestDTO("HIT"))
                 .exchange()
                 .expectStatus().isNotFound();
@@ -204,6 +224,7 @@ class GameControllerTest {
 
         webTestClient.post()
                 .uri("/g123/play")
+                .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(req)
                 .exchange()
                 .expectStatus().isOk();
@@ -212,21 +233,62 @@ class GameControllerTest {
     }
 
     @Test
-    void playMove_ShouldReturn400_WhenMoveIsEmpty() {
+    void playMove_ShouldReturn400_WhenGameIsAlreadyFinished() {
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.error(new IllegalStateException("Game is already finished")));
+
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO(""))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PlayRequestDTO("HIT"))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.message").isEqualTo("Game is already finished");
     }
 
     @Test
-    void playMove_ShouldReturn400_WhenMoveIsNull() {
+    void playMove_ShouldReturn400_WhenMoveIsNotAllowed() {
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.error(new InvalidMoveException("Invalid move")));
+
         webTestClient.post()
                 .uri("/g1/play")
-                .bodyValue(new PlayRequestDTO(null))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PlayRequestDTO("HIT"))
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isBadRequest()
+                .expectBody()
+                .jsonPath("$.error").isEqualTo("BAD_REQUEST")
+                .jsonPath("$.message").isEqualTo("Invalid move");
+    }
+
+    @Test
+    void playMove_ShouldReturnFullJsonStructure() {
+        PlayResultDTO result = PlayResultDTO.builder()
+                .gameId("g1")
+                .status("PLAYER_WIN")
+                .playerHand(List.of("10H", "9D"))
+                .dealerHand(List.of("5C", "7D"))
+                .playerValue(19)
+                .dealerValue(12)
+                .message("Player wins!")
+                .build();
+
+        when(gameService.playMove(eq("g1"), any()))
+                .thenReturn(Mono.just(result));
+
+        webTestClient.post()
+                .uri("/g1/play")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(new PlayRequestDTO("HIT"))
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.gameId").isEqualTo("g1")
+                .jsonPath("$.status").isEqualTo("PLAYER_WIN")
+                .jsonPath("$.message").isEqualTo("Player wins!")
+                .jsonPath("$.playerValue").isEqualTo(19);
     }
 
     @Test
@@ -244,7 +306,7 @@ class GameControllerTest {
     @Test
     void deleteGame_ShouldReturn404_WhenGameNotFound() {
         when(gameService.deleteGame("missing"))
-                .thenReturn(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND)));
+                .thenReturn(Mono.error(new NotFoundException("Game not found")));
 
         webTestClient.delete().uri("/missing/delete")
                 .exchange()

@@ -14,6 +14,5 @@ public class PlayResultDTO {
     private List<String> dealerHand;
     private int playerValue;
     private int dealerValue;
-    private int remainingDeckSize;
     private String message;
 }

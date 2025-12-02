@@ -5,6 +5,7 @@ import cat.itacademy.s05.t01.blackjack.dto.PlayerResponse;
 import cat.itacademy.s05.t01.blackjack.dto.PlayerUpdateRequest;
 import cat.itacademy.s05.t01.blackjack.exception.NotFoundException;
 import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
+import cat.itacademy.s05.t01.blackjack.model.mysql.Player;
 import cat.itacademy.s05.t01.blackjack.repository.mysql.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -21,10 +24,6 @@ public class PlayerServiceImpl implements PlayerService {
 
     @Override
     public Mono<PlayerResponse> updatePlayerName(Long playerId, PlayerUpdateRequest request) {
-
-        if (request == null || request.newName() == null || request.newName().trim().isEmpty()) {
-            return Mono.error(new ValidationException("Name cannot be empty"));
-        }
 
         return playerRepository.findById(playerId)
                 .switchIfEmpty(Mono.error(new NotFoundException("Player not found")))
@@ -44,20 +43,7 @@ public class PlayerServiceImpl implements PlayerService {
     @Override
     public Flux<PlayerRankingResponse> getRanking() {
         return playerRepository.findAll()
-                .sort((p1, p2) -> {
-                    int byWins = Integer.compare(p2.getGamesWon(), p1.getGamesWon());
-                    if (byWins != 0) return byWins;
-
-                    double winRate1 = p1.getGamesPlayed() == 0 ? 0
-                            : (double) p1.getGamesWon() / p1.getGamesPlayed();
-                    double winRate2 = p2.getGamesPlayed() == 0 ? 0
-                            : (double) p2.getGamesWon() / p2.getGamesPlayed();
-
-                    int byWinRate = Double.compare(winRate2, winRate1);
-                    if (byWinRate != 0) return byWinRate;
-
-                    return Long.compare(p1.getId(), p2.getId());
-                })
+                .sort(RANKING_ORDER)
                 .map(player -> {
                     double winRate = player.getGamesPlayed() == 0 ? 0 :
                             (double) player.getGamesWon() / player.getGamesPlayed();
@@ -73,4 +59,9 @@ public class PlayerServiceImpl implements PlayerService {
                 });
     }
 
+    private static final Comparator<Player> RANKING_ORDER = Comparator
+            .comparing(Player::getGamesWon).reversed()
+            .thenComparing(p -> p.getGamesPlayed() == 0 ? 0 :
+                    (double) p.getGamesWon() / p.getGamesPlayed(), Comparator.reverseOrder())
+            .thenComparing(Player::getId);
 }
