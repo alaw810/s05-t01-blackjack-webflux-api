@@ -10,7 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
         String path = exchange.getRequest().getPath().value();
 
         return ErrorResponse.builder()
-                .timestamp(OffsetDateTime.now().toString())
+                .timestamp(Instant.now().toString())
                 .error(status.name())
                 .message(ex.getMessage())
                 .path(path)
@@ -40,6 +40,13 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.status(status).body(body));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleIllegalArg(IllegalArgumentException ex, ServerWebExchange exchange) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        ErrorResponse body = buildErrorResponse(status, ex, exchange);
+        return Mono.just(ResponseEntity.status(status).body(body));
+    }
+
     @ExceptionHandler(WebExchangeBindException.class)
     public Mono<ResponseEntity<ErrorResponse>> handleBindException(WebExchangeBindException ex, ServerWebExchange exchange) {
         HttpStatus status = HttpStatus.BAD_REQUEST;
@@ -49,19 +56,12 @@ public class GlobalExceptionHandler {
                 : ex.getFieldErrors().get(0).getDefaultMessage();
 
         ErrorResponse body = ErrorResponse.builder()
-                .timestamp(OffsetDateTime.now().toString())
+                .timestamp(Instant.now().toString())
                 .error(status.name())
                 .message(msg)
                 .path(exchange.getRequest().getPath().value())
                 .build();
 
-        return Mono.just(ResponseEntity.status(status).body(body));
-    }
-
-    @ExceptionHandler(ResponseStatusException.class)
-    public Mono<ResponseEntity<ErrorResponse>> handleResponseStatus(ResponseStatusException ex, ServerWebExchange exchange) {
-        HttpStatus status = (HttpStatus) ex.getStatusCode();
-        ErrorResponse body = buildErrorResponse(status, ex, exchange);
         return Mono.just(ResponseEntity.status(status).body(body));
     }
 

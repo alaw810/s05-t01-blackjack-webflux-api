@@ -1,12 +1,10 @@
 package cat.itacademy.s05.t01.blackjack.controller;
 
 import cat.itacademy.s05.t01.blackjack.dto.*;
-import cat.itacademy.s05.t01.blackjack.exception.ValidationException;
 import cat.itacademy.s05.t01.blackjack.service.GameService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 @RestController

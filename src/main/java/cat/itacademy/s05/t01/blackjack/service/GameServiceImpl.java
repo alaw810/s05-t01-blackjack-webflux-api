@@ -34,10 +34,6 @@ public class GameServiceImpl implements GameService {
                 ? request.playerName().trim()
                 : "";
 
-        if (playerName.isBlank()) {
-            return Mono.error(new IllegalArgumentException("Player name must not be empty"));
-        }
-
         return findOrCreatePlayer(playerName)
                 .flatMap(player -> {
                     List<String> deck = DeckFactory.createShuffledDeck();
@@ -66,7 +62,6 @@ public class GameServiceImpl implements GameService {
                 .map(game -> {
                     int playerValue = BlackjackRules.calculateHandValue(game.getPlayerHand());
                     int dealerValue = getVisibleDealerValue(game);
-                    int deckSize = game.getDeck() != null ? game.getDeck().size() : 0;
 
                     return GameDetailsResponse.builder()
                             .gameId(game.getId())
