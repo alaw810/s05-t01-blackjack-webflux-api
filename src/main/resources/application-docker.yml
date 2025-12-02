@@ -1,0 +1,9 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://mongodb:27017/blackjack
+
+  r2dbc:
+    url: r2dbc:mysql://mysql:3306/blackjack
+    username: root
+    password: root
